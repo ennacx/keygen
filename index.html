@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSA KeyGen</title>
+    <link rel="stylesheet" href="keygen.css" />
+</head>
+<body>
+
+<h2>🔐 RSA鍵ペア生成（ブラウザ内完結）</h2>
+<p>下のボタンを押すとブラウザ内でRSA 2048bit鍵ペアを生成します。</p>
+
+<button id="gen">鍵ペアを生成する</button>
+
+<h3>秘密鍵</h3>
+<pre id="priv">（未生成）</pre>
+<button id="dlPriv" disabled>秘密鍵をダウンロード</button>
+
+<h3>公開鍵</h3>
+<pre id="pub">（未生成）</pre>
+<button id="dlPub" disabled>公開鍵をダウンロード</button>
+
+<script src="index.js" defer></script>
+</body>
+</html>

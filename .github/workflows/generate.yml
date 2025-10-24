@@ -1,0 +1,84 @@
+name: RSA-Key Generator
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22.x'
+
+    - name: Setup module
+      run: |
+        npm install -g html-minifier-terser terser clean-css-cli
+
+    - name: Make directory
+      run: |
+        mkdir -p ./dist
+        mkdir -p ./dist/resources
+
+#    - name: Generate service worker with git hash
+#      run: |
+#        GIT_HASH=$(git rev-parse --short HEAD)
+#        sed "s/{{GIT_HASH}}/${GIT_HASH}/g" service-worker.template.js > service-worker.js
+
+    - name: HTML minifier
+      run: |
+        html-minifier-terser --collapse-whitespace --remove-comments --remove-optional-tags --remove-redundant-attributes --remove-script-type-attributes --remove-style-link-type-attributes --use-short-doctype --minify-js true --minify-css true ./index.html -o ./dist/index.html
+
+    - name: JS minifier
+      run: |
+        terser ./keygen.js -c -m -o ./dist/keygen.js
+#        terser ./index.js -c -m -o ./dist/index.js
+#        terser ./reg-service-worker.js -c -m -o ./dist/reg-service-worker.js
+#        terser ./service-worker.js -c -m -o ./dist/service-worker.js
+
+    - name: CSS minifier
+      run: |
+        cleancss -o ./dist/keygen.css ./keygen.css
+
+#    - name: Copy resources
+#      run: |
+#        cp ./googleb95e7dd5d4aa5997.html ./dist/
+#        cp ./manifest.json ./dist/
+#        cp ./favicon.ico ./dist/
+#        cp ./resources/icon-256.png ./dist/resources/
+#        cp ./resources/icon-512.png ./dist/resources/
+#        cp ./resources/ogp-banner.png ./dist/resources/
+
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: './dist'
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Publish URL to summary
+        run: echo "Deployed to ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
