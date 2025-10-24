@@ -28,7 +28,18 @@
         <h1><a href="./">🔐 RSA鍵ペア生成</a></h1>
         <p>下のボタンを押すとブラウザ内でRSA 2048bit鍵ペアを生成します。</p>
 
-        <button id="gen" class="btn btn-sm btn-outline-primary">鍵ペアを生成する</button>
+        <select name="algo" class="form-select">
+            <option value="RSA">RSA</option>
+            <option value="ECDSA">ECDSA</option>
+        </select>
+
+        <div class="d-flex">
+            <label><input type="radio" name="nist" value="256" checked>P-256</label>
+            <label><input type="radio" name="nist" value="384">P-384</label>
+            <label><input type="radio" name="nist" value="521">P-521</label>
+        </div>
+
+        <button name="gen" class="btn btn-sm btn-outline-primary">鍵ペアを生成する</button>
 
         <h3>公開鍵</h3>
         <pre id="pub" class="result-mono">（未生成）</pre>
