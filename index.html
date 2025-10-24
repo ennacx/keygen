@@ -1,26 +1,60 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" translate="no" class="h-100">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
     <title>RSA KeyGen</title>
+
+    <!-- JS(CDN) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous" defer></script>
+    <script src="https://code.jquery.com/ui/1.14.1/jquery-ui.min.js" integrity="sha256-AlTido85uXPlSyyaZNsjJXeCs07eSv3r43kyCVc8ChI=" crossorigin="anonymous" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.min.js" integrity="sha256-ew8UiV1pJH/YjpOEBInP1HxVvT/SfrCmwSoUzF9JIgc=" crossorigin="anonymous" defer></script>
+
+    <!-- Local JS -->
+    <script src="keygen.js" defer></script>
+
+    <!-- CSS(CDN) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" integrity="sha256-2FMn2Zx6PuH5tdBQDRNwrOo60ts5wWPC9R8jK67b3t4=" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" integrity="sha256-pdY4ejLKO67E0CM2tbPtq1DJ3VGDVVdqAR6j3ZwdiE4=" crossorigin="anonymous">
+
+    <!-- Local CSS -->
     <link rel="stylesheet" href="keygen.css" />
 </head>
+
 <body>
+    <!-- メイン表示部 -->
+    <div id="content" class="container-fluid">
+        <h1><a href="./">🔐 RSA鍵ペア生成</a></h1>
+        <p>下のボタンを押すとブラウザ内でRSA 2048bit鍵ペアを生成します。</p>
 
-<h2>🔐 RSA鍵ペア生成（ブラウザ内完結）</h2>
-<p>下のボタンを押すとブラウザ内でRSA 2048bit鍵ペアを生成します。</p>
+        <button id="gen" class="btn btn-sm btn-outline-primary">鍵ペアを生成する</button>
 
-<button id="gen">鍵ペアを生成する</button>
+        <h3>公開鍵</h3>
+        <pre id="pub" class="result-mono">（未生成）</pre>
+        <button id="dlPub" class="btn btn-sm btn-outline-secondary" disabled>公開鍵をダウンロード</button>
 
-<h3>公開鍵</h3>
-<pre id="pub">（未生成）</pre>
-<button id="dlPub" disabled>公開鍵をダウンロード</button>
+        <h3>秘密鍵</h3>
+        <pre id="priv" class="result-mono">（未生成）</pre>
+        <button id="dlPriv" class="btn btn-sm btn-outline-secondary" disabled>秘密鍵をダウンロード</button>
+    </div>
 
-<h3>秘密鍵</h3>
-<pre id="priv">（未生成）</pre>
-<button id="dlPriv" disabled>秘密鍵をダウンロード</button>
+    <!-- フッター -->
+    <footer class="d-flex">
+        <div class="disclaimer">
+            <p>このツールはブラウザ上で安全なキーを生成します。生成されたすべては保存されず、すべてローカル処理で行われます。</p>
+            <p>なお、本ツールの使用によりトラブルが発生した場合、私たちは一切の責任を負いません。</p>
+        </div>
+        <div class="ms-auto">
+            <ul class="list-group list-group-horizontal copy-links">
+                <li>&copy;&nbsp;2025&nbsp;Ennacx</li>
+                <li><a href="https://ennacx.github.io/benri/" target="_blank"><i class="bi bi-house-door"></i>便利ツール</a></li>
+                <li><a href="https://github.com/ennacx/keygen" target="_blank"><i class="bi bi-github"></i>GitHub</a></li>
+            </ul>
+        </div>
+    </footer>
 
-<script src="keygen.js" defer></script>
+    <!-- UI制御用JS -->
+    <script src="index.js" defer></script>
 </body>
 </html>

@@ -1,3 +1,116 @@
-body { font-family: system-ui, sans-serif; padding: 2em; background: #fafafa; }
-button { margin-top: 1em; padding: 0.6em 1.2em; font-size: 1em; }
-pre { background: #eee; padding: 1em; white-space: pre-wrap; word-break: break-all; }
+@charset "UTF-8";
+
+// Google fonts "Noto Sans JP", "Atkinson Hyperlegible Mono"
+@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&family=Noto+Sans+JP:wght@100..900&display=swap');
+
+// 既定色
+$bg_color: #f9fafb;
+$default_color: #2d8efd;
+$light_color: #4aa3f8;
+$dark_color: rgba(45, 142, 253, 0.35);
+$font_color: #111827;
+
+$footer_height: 36px;
+$default_font: "Noto Sans JP", sans-serif;
+$mono_font: "Atkinson Hyperlegible Mono", monospace;
+
+body {
+	background-color: $bg_color;
+	font-family: $default_font;
+	font-size: 0.93rem;
+	color: $font_color;
+
+	-webkit-font-smoothing: antialiased;
+}
+
+a {
+	color: $default_color;
+	text-decoration: none;
+	cursor: pointer;
+
+	&:hover {
+		color: $light_color;
+	}
+}
+
+h1 {
+	margin-bottom: 8px;
+
+	a {
+		color: black;
+
+		&:hover{
+			color: black;
+		}
+	}
+}
+
+footer {
+	text-align: right;
+	font-size: 0.67rem;
+	border-top: 1px solid #eaeaea;
+	background-color: $bg_color;
+	backdrop-filter: blur(4px);
+	color: #a5a5a5;
+
+	width: 100%;
+	height: $footer_height;
+	margin: 0;
+	padding: 8px .88%;
+
+	position: fixed;
+	bottom: 0;
+	left: 0;
+
+	p {
+		i {
+			margin-right: 6px;
+		}
+	}
+
+	.disclaimer {
+		color: #aaaacc;
+
+		// 表示はしない
+		p {
+			display: none;
+		}
+	}
+
+	ul.copy-links {
+		list-style: none;
+
+		& li {
+			padding: 0 4px;
+
+			&:not(:first-child) {
+				border-left: 1px solid #a5a5a5;
+			}
+
+			a {
+				text-decoration: none;
+			}
+
+			a:hover {
+				color: #6585ff;
+			}
+
+			i {
+				margin-right: 4px;
+			}
+		}
+	}
+}
+
+#content {
+	padding-bottom: $footer_height + 16px !important;
+}
+
+pre {
+	&.result-mono {
+		background: #eee; padding: 1rem;
+		font-family: $mono_font system-ui monospace;
+		white-space: pre-wrap;
+		word-break: break-all;
+	}
+}

@@ -1,18 +1,82 @@
+@import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&family=Noto+Sans+JP:wght@100..900&display=swap");
 body {
-  font-family: system-ui, sans-serif;
-  padding: 2em;
-  background: #fafafa;
+  background-color: #f9fafb;
+  font-family: "Noto Sans JP", sans-serif;
+  font-size: 0.93rem;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
 }
 
-button {
-  margin-top: 1em;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+a {
+  color: #2d8efd;
+  text-decoration: none;
+  cursor: pointer;
+}
+a:hover {
+  color: #4aa3f8;
 }
 
-pre {
+h1 {
+  margin-bottom: 8px;
+}
+h1 a {
+  color: black;
+}
+h1 a:hover {
+  color: black;
+}
+
+footer {
+  text-align: right;
+  font-size: 0.67rem;
+  border-top: 1px solid #eaeaea;
+  background-color: #f9fafb;
+  backdrop-filter: blur(4px);
+  color: #a5a5a5;
+  width: 100%;
+  height: 36px;
+  margin: 0;
+  padding: 8px 0.88%;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+}
+footer p i {
+  margin-right: 6px;
+}
+footer .disclaimer {
+  color: #aaaacc;
+}
+footer .disclaimer p {
+  display: none;
+}
+footer ul.copy-links {
+  list-style: none;
+}
+footer ul.copy-links li {
+  padding: 0 4px;
+}
+footer ul.copy-links li:not(:first-child) {
+  border-left: 1px solid #a5a5a5;
+}
+footer ul.copy-links li a {
+  text-decoration: none;
+}
+footer ul.copy-links li a:hover {
+  color: #6585ff;
+}
+footer ul.copy-links li i {
+  margin-right: 4px;
+}
+
+#content {
+  padding-bottom: 52px !important;
+}
+
+pre.result-mono {
   background: #eee;
-  padding: 1em;
+  padding: 1rem;
+  font-family: "Atkinson Hyperlegible Mono", monospace system-ui monospace;
   white-space: pre-wrap;
   word-break: break-all;
 }

@@ -19,11 +19,11 @@ async function generateRSA() {
 	const publicPEM  = toPEM(spki, PUBKEY_LABEL);
 	const privatePEM = toPEM(pkcs8, PRIVKEY_LABEL);
 
-	document.getElementById("priv").textContent = privatePEM;
 	document.getElementById("pub").textContent  = publicPEM;
+	document.getElementById("priv").textContent = privatePEM;
 
-	enableDownload("dlPriv", privatePEM, "id_rsa.pem");
 	enableDownload("dlPub", publicPEM, "id_rsa.pub.pem");
+	enableDownload("dlPriv", privatePEM, "id_rsa.pem");
 }
 
 function toPEM(buffer, label) {
