@@ -16,8 +16,8 @@ async function generateRSA() {
 	const pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
 	const spki = await crypto.subtle.exportKey("spki", keyPair.publicKey);
 
-	const privatePEM = toPEM(pkcs8, PUBKEY_LABEL);
-	const publicPEM  = toPEM(spki, PRIVKEY_LABEL);
+	const publicPEM  = toPEM(spki, PUBKEY_LABEL);
+	const privatePEM = toPEM(pkcs8, PRIVKEY_LABEL);
 
 	document.getElementById("priv").textContent = privatePEM;
 	document.getElementById("pub").textContent  = publicPEM;
