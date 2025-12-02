@@ -1,5 +1,3 @@
-var guri2done = false;
-
 (() => {
 	// 目標ビット数 (2bits/ev見積 ⇒ 128サンプル ≒ 256bits)
 	const TARGET_BITS = 256;
@@ -13,13 +11,22 @@ var guri2done = false;
 
 	let writeIdx = 0;
 	let collectedBits = 0;
+	let done = false;
 
 	const zone = document.getElementById('zone');
 	const fill = document.getElementById('fill');
 	const status = document.getElementById('status');
 	const out = document.getElementById('out');
-	const btnFinalize = document.getElementById('guri2gen-to_hash');
 	const btnReset = document.getElementById('guri2gen-reset');
+
+	const getSeed = async () => {
+		const digest = await crypto.subtle.digest('SHA-256', POOL);
+
+		// 集めたプールをハッシュ化 (seedマテリアルとして扱える256bit(32byte))
+		return new Uint8Array(digest);
+	};
+
+	const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).join('');
 
 	const addEntropy = (x, y) => {
 		// 時刻の微細な揺らぎ (小数) も混ぜる
@@ -38,14 +45,22 @@ var guri2done = false;
 		collectedBits = Math.min(TARGET_BITS, collectedBits + BITS_PER_EVENT);
 		const pct = Math.round((collectedBits / TARGET_BITS) * 100);
 		fill.style.width = `${pct}%`;
-		status.textContent = `収集中: ${collectedBits} / ${TARGET_BITS} bits`;
 
-		if (collectedBits >= TARGET_BITS && !guri2done) {
-			guri2done = true;
-			btnFinalize.disabled = false;
-			status.textContent = `十分なエントロピーを収集しました（${TARGET_BITS} bits）。`;
+		if(collectedBits >= TARGET_BITS){
+			if(!done){
+				done = true;
+				status.textContent = `${TARGET_BITS}bit分のエントロピーを収集しました。`;
 
-			document.getElementById('generate-button').disabled = false;
+				document.getElementById('generate-button').disabled = false;
+
+				getSeed().then((d) => {
+					out.textContent = `Seed (SHA-256):\n${toHex(d)}`;
+
+					document.getElementById('generate-button').click();
+				});
+			}
+		} else{
+			status.textContent = `収集中: ${collectedBits} / ${TARGET_BITS} bits`;
 		}
 	};
 
@@ -66,22 +81,14 @@ var guri2done = false;
 	zone.addEventListener('touchmove', onTouch, PASSIVE_TRUE);
 	zone.addEventListener('touchstart', onTouch, PASSIVE_TRUE);
 
-	btnFinalize.addEventListener('click', async () => {
-		// 集めたプールをハッシュ化 (seedマテリアルとして扱える256bit(32byte))
-		const digest = await crypto.subtle.digest('SHA-256', POOL);
-		const seed = new Uint8Array(digest); // 32バイト
-		out.textContent = 'SHA-256 (seed):\n' + toHex(seed) + '\n（このseedは鍵生成の“採用選択”や保存時マスクなどに利用）';
-	});
-
 	btnReset.addEventListener('click', () => {
 		POOL.fill(0);
 		writeIdx = 0;
 		collectedBits = 0;
-		guri2done = false;
+		done = false;
 
 		fill.style.width = '0%';
 		status.textContent = `収集中: 0 / ${TARGET_BITS} bits`;
-		btnFinalize.disabled = true;
 		out.textContent = '';
 
 		// 非チェック時は必ずenabled状態
@@ -89,8 +96,4 @@ var guri2done = false;
 			document.getElementById('generate-button').disabled = true;
 		}
 	});
-
-	function toHex(u8arr) {
-		return [...u8arr].map((b) => b.toString(16).padStart(2, '0')).join('');
-	}
 })();

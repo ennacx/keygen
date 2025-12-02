@@ -56,14 +56,16 @@
                 <div id="progress-bar">
                     <div id="fill"></div>
                 </div>
-                <div id="status">収集中: 0 / 256 bits</div>
 
-                <button id="guri2gen-reset" class="btn btn-sm btn-outline-secondary">リセット</button>
-                <button id="guri2gen-to_hash" class="btn btn-sm btn-success" disabled>ハッシュ化</button>
+                <div class="d-flex mt-2">
+                    <button id="guri2gen-reset" class="btn btn-sm btn-outline-secondary">リセット</button>
+                    <div id="status" class="ms-auto">収集中: 0 / 256 bits</div>
+                </div>
 
-                <pre id="out"></pre>
+                <pre id="out" class="result-mono mt-2"></pre>
 
                 <p>生成したシードはWebCryptoのgenerateKeyに渡せないため、選別用に使用します。</p>
+                <p class="d-none">このseedは鍵生成の“採用選択”や保存時マスクなどに利用</p>
             </div>
         </div>
 

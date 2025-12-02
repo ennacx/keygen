@@ -15,15 +15,15 @@ $(() => {
 	const $generateButton = $('button[name="gen"]');
 
 	const algoRadioToggle = () => {
-		const al = $('select[name="algo"] option:selected').val();console.log(al);
+		const al = $('select[name="algo"] option:selected').val();
 		switch(al){
 			case 'RSA':
-				$('#rsa-length-radio').addClass('d-flex').removeClass('d-none');
-				$('#ecdsa-nist-radio').addClass('d-none').removeClass('d-flex');
+				$rsaLengthRadio.addClass('d-flex').removeClass('d-none');
+				$ecdsaNistRadio.addClass('d-none').removeClass('d-flex');
 				break;
 			case 'ECDSA':
-				$('#rsa-length-radio').addClass('d-none').removeClass('d-flex');
-				$('#ecdsa-nist-radio').addClass('d-flex').removeClass('d-none');
+				$rsaLengthRadio.addClass('d-none').removeClass('d-flex');
+				$ecdsaNistRadio.addClass('d-flex').removeClass('d-none');
 				break;
 		}
 	};
