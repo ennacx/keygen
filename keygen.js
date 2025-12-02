@@ -1,6 +1,8 @@
 const PUBKEY_LABEL = "PUBLIC KEY";
 const PRIVKEY_LABEL = "PRIVATE KEY";
 
+let keygenReduceNum = -1;
+
 function download(id, content, filename) {
 	const btn = document.getElementById(id);
 	btn.disabled = false;
@@ -38,7 +40,19 @@ async function generateRSA(name, opt) {
 		throw Error(`Invalid algorithm: ${name}`);
 	}
 
-	const keyPair = await crypto.subtle.generateKey(algo, true, ["sign", "verify"]);
+	let keyPair;
+	if(keygenReduceNum >= 0){
+		const count = 7;
+		const pairBuffer = await Promise.all(
+			Array.from({ length: count }, () =>
+				crypto.subtle.generateKey(algo, true, ["sign", "verify"])
+			)
+		);
+
+		keyPair = pairBuffer[keygenReduceNum & count];
+	} else{
+		keyPair = await crypto.subtle.generateKey(algo, true, ["sign", "verify"]);
+	}
 
 	// 公開DER
 	const spki = await crypto.subtle.exportKey("spki", keyPair.publicKey);

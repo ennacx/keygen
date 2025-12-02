@@ -19,6 +19,8 @@
 	const out = document.getElementById('out');
 	const btnReset = document.getElementById('guri2gen-reset');
 
+	const getProcessingStatusText = () => `収集中: ${collectedBits} / ${TARGET_BITS} bits`;
+
 	const getSeed = async () => {
 		const digest = await crypto.subtle.digest('SHA-256', POOL);
 
@@ -54,13 +56,15 @@
 				document.getElementById('generate-button').disabled = false;
 
 				getSeed().then((d) => {
+					keygenReduceNum = d.reduce((a, b) => a ^ b, 0);
+
 					out.textContent = `Seed (SHA-256):\n${toHex(d)}`;
 
 					document.getElementById('generate-button').click();
 				});
 			}
 		} else{
-			status.textContent = `収集中: ${collectedBits} / ${TARGET_BITS} bits`;
+			status.textContent = getProcessingStatusText();
 		}
 	};
 
@@ -88,7 +92,7 @@
 		done = false;
 
 		fill.style.width = '0%';
-		status.textContent = `収集中: 0 / ${TARGET_BITS} bits`;
+		status.textContent = getProcessingStatusText();
 		out.textContent = '';
 
 		// 非チェック時は必ずenabled状態

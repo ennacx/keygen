@@ -12,6 +12,7 @@ $(() => {
 	const $rsaLengthRadio = $('#rsa-length-radio');
 	const $ecdsaNistRadio = $('#ecdsa-nist-radio');
 	const $guri2Check = $('input[name="guri2view"]');
+	const $guri2ResetButton = $('button[name="guri2gen-reset"]');
 	const $generateButton = $('button[name="gen"]');
 
 	const algoRadioToggle = () => {
@@ -35,9 +36,13 @@ $(() => {
 		if(checked){
 			$('#guri2-zone').show(200);
 
+			keygenReduceNum = 0;
+
 			$generateButton.prop('disabled', true);
 		} else{
 			$('#guri2-zone').hide(200);
+
+			keygenReduceNum = -1;
 
 			$('button#guri2gen-reset').click();
 
@@ -48,6 +53,11 @@ $(() => {
 	guri2zoneToggle($guri2Check.prop('checked'));
 	$guri2Check.change(function(){
 		guri2zoneToggle($(this).prop('checked'));
+	});
+
+	$guri2ResetButton.click(() => {
+		$('pre#pub').text("（未生成）");
+		$('pre#priv').text("（未生成）");
 	});
 
 	$generateButton.click(async function(){
