@@ -1,13 +1,26 @@
 const PUBKEY_LABEL = "PUBLIC KEY";
 const PRIVKEY_LABEL = "PRIVATE KEY";
 
-async function generateRSA(name, nist) {
+function download(id, content, filename) {
+	const btn = document.getElementById(id);
+	btn.disabled = false;
+	btn.onclick = () => {
+		const blob = new Blob([content], { type: "application/x-pem-file" });
+		const a = document.createElement("a");
+		a.href = URL.createObjectURL(blob);
+		a.download = filename;
+		a.click();
+		URL.revokeObjectURL(a.href);
+	};
+}
+
+async function generateRSA(name, opt) {
 	let algo;
 	switch(name){
 		case 'RSA':
 			algo = {
 				name: "RSA-PSS",
-				modulusLength: 2048,
+				modulusLength: opt.len,
 				publicExponent: new Uint8Array([1, 0, 1]),
 				hash: "SHA-256"
 			};
@@ -16,20 +29,25 @@ async function generateRSA(name, nist) {
 		case 'ECDSA':
 			algo = {
 				name: "ECDSA",
-				namedCurve: `P-${nist}`
-			}
+				namedCurve: `P-${opt.nist}`
+			};
+			break;
 	}
 
 	if(!algo){
-		throw Error("Invalid algorithm:");
+		throw Error(`Invalid algorithm: ${name}`);
 	}
 
 	const keyPair = await crypto.subtle.generateKey(algo, true, ["sign", "verify"]);
 
-	const pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+	// 公開DER
 	const spki = await crypto.subtle.exportKey("spki", keyPair.publicKey);
+	// 秘密DER
+	const pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
 
+	// 公開PEM
 	const publicPEM  = toPEM(spki, PUBKEY_LABEL);
+	// 秘密PEM
 	const privatePEM = toPEM(pkcs8, PRIVKEY_LABEL);
 
 	document.getElementById("pub").textContent  = publicPEM;
