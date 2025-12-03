@@ -116,6 +116,22 @@ const rfc4253 = {
 	}
 };
 
+function makeOpenSSHPubKey(spkiBuf, comment) {
+	const { n, e } = parseRsaSpki(spkiBuf);
+	const b64 = toBase64(rfc4253.concatBytes([
+		rfc4253.writeString("ssh-rsa"),
+		rfc4253.writeMpint(e),
+		rfc4253.writeMpint(n)
+	]));
+
+	let c = '';
+	if(comment.length > 0){
+		c += ` ${comment}`;
+	}
+
+	return `ssh-rsa ${b64}${c}`;
+}
+
 const toBase64 = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)));
 
 const toPEM = (buffer, label) => {
@@ -198,23 +214,8 @@ async function generateKey(name, opt, onProgress) {
 	// 秘密DER
 	const pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
 
-	let openssh;
-	if(name === 'RSA'){
-		const { n, e } = parseRsaSpki(spki);
-		const b64 = toBase64(rfc4253.concatBytes([
-			rfc4253.writeString("ssh-rsa"),
-			rfc4253.writeMpint(e),
-			rfc4253.writeMpint(n)
-		]));
-
-		openssh = `ssh-rsa ${b64}`;
-
-		if(opt.comment.length > 0){
-			openssh += ` ${opt.comment}`;
-		}
-	} else{
-		openssh = undefined;
-	}
+	// OpenSSH公開鍵
+	const openssh = (name === 'RSA') ? makeOpenSSHPubKey(spki, opt.comment) : undefined;
 
 	return {
 		public: spki,
