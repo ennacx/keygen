@@ -277,7 +277,7 @@ async function generateKey(name, opt, onProgress) {
 			)
 		);
 
-		keyPair = pairBuffer[keygenReduceNum & count];
+		keyPair = pairBuffer[keygenReduceNum % count];
 	} else{
 		keyPair = await crypto.subtle.generateKey(algo, true, ["sign", "verify"])
 

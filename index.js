@@ -1,5 +1,5 @@
 // Crypt実装チェック
-if(!window.crypto || typeof window.crypto.getRandomValues !== 'function' || typeof window.crypto.randomUUID !== 'function'){
+if(!window.crypto || !window.crypto.subtle || typeof window.crypto.getRandomValues !== 'function'){
 	// 全ボタン無効化
 	$('button').each(function(idx, elem){
 		$(elem).prop('disabled', true);
