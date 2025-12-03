@@ -3,6 +3,12 @@ const PRIVKEY_LABEL = "PRIVATE KEY";
 
 let keygenReduceNum = -1;
 
+function toPEM(buffer, label) {
+	const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
+		.replace(/(.{64})/g, "$1\n");
+	return `-----BEGIN ${label}-----\n${base64}\n-----END ${label}-----`;
+}
+
 function download(id, content, filename) {
 	const btn = document.getElementById(id);
 	btn.disabled = false;
@@ -16,7 +22,7 @@ function download(id, content, filename) {
 	};
 }
 
-async function generateRSA(name, opt) {
+async function generateRSA(name, opt, onProgress) {
 	let algo;
 	switch(name){
 		case 'RSA':
@@ -43,36 +49,36 @@ async function generateRSA(name, opt) {
 	let keyPair;
 	if(keygenReduceNum >= 0){
 		const count = 7;
+		let done = 0;
+		const wrapWithProgress = (p) =>
+			p.then((result) => {
+				if(typeof onProgress === 'function'){
+					onProgress(++done, count);
+				}
+
+				return result;
+			});
+
 		const pairBuffer = await Promise.all(
-			Array.from({ length: count }, () =>
-				crypto.subtle.generateKey(algo, true, ["sign", "verify"])
+			Array.from(
+				{ length: count },
+				() => wrapWithProgress(crypto.subtle.generateKey(algo, true, ["sign", "verify"]))
 			)
 		);
 
 		keyPair = pairBuffer[keygenReduceNum & count];
 	} else{
-		keyPair = await crypto.subtle.generateKey(algo, true, ["sign", "verify"]);
+		keyPair = await crypto.subtle.generateKey(algo, true, ["sign", "verify"])
+
+		if(typeof onProgress === 'function'){
+			onProgress(1, 1);
+		}
 	}
 
-	// 公開DER
-	const spki = await crypto.subtle.exportKey("spki", keyPair.publicKey);
-	// 秘密DER
-	const pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-
-	// 公開PEM
-	const publicPEM  = toPEM(spki, PUBKEY_LABEL);
-	// 秘密PEM
-	const privatePEM = toPEM(pkcs8, PRIVKEY_LABEL);
-
-	document.getElementById("pub").textContent  = publicPEM;
-	document.getElementById("priv").textContent = privatePEM;
-
-	download("dlPub", publicPEM, "id_rsa.pub.pem");
-	download("dlPriv", privatePEM, "id_rsa.pem");
-}
-
-function toPEM(buffer, label) {
-	const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
-		.replace(/(.{64})/g, "$1\n");
-	return `-----BEGIN ${label}-----\n${base64}\n-----END ${label}-----`;
+	return {
+		// 公開DER
+		public: await crypto.subtle.exportKey("spki", keyPair.publicKey),
+		// 秘密DER
+		private: await crypto.subtle.exportKey("pkcs8", keyPair.privateKey)
+	};
 }

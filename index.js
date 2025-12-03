@@ -44,10 +44,10 @@ $(() => {
 
 			keygenReduceNum = -1;
 
-			$('button#guri2gen-reset').click();
-
 			$generateButton.prop('disabled', false);
 		}
+
+		$('button#guri2gen-reset').click();
 	};
 
 	guri2zoneToggle($guri2Check.prop('checked'));
@@ -58,11 +58,21 @@ $(() => {
 	$guri2ResetButton.click(() => {
 		$('pre#pub').text("（未生成）");
 		$('pre#priv').text("（未生成）");
+		$('#dlPub').prop('disabled', true);
+		$('#dlPriv').prop('disabled', true);
+
+		$('#generate-fill').width('0%');
 	});
 
 	$generateButton.click(async function(){
+		const $progress = $('#generate-fill');
 		const al = $('select[name="algo"] option:selected').val();
 		const opt = {};
+		const progress = (done, total) => {
+			$progress.width(`${Math.round((done / total) * 100)}%`);
+		};
+
+		$progress.width('0%');
 
 		switch(al){
 			case 'RSA':
@@ -73,6 +83,19 @@ $(() => {
 				break;
 		}
 
-		await generateRSA(al, opt);
+		const result = await generateRSA(al, opt, progress);
+
+		// 公開PEM
+		const publicPEM  = toPEM(result.public, PUBKEY_LABEL);
+		// 秘密PEM
+		const privatePEM = toPEM(result.private, PRIVKEY_LABEL);
+
+		// 表示用
+		$('#pub').text(publicPEM);
+		$('#priv').text(privatePEM);
+
+		// DL用
+		download("dlPub", publicPEM, `id_${al.toLowerCase()}.pub.pem`);
+		download("dlPriv", privatePEM, `id_${al.toLowerCase()}.pem`);
 	});
 })

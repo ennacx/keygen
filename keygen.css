@@ -79,22 +79,15 @@ footer ul.copy-links li i {
   place-items: center;
   user-select: none;
 }
-#content #guri2 #progress-bar {
-  width: 100%;
-  height: 10px;
-  border-radius: 6px;
-  background: #eee;
-  overflow: hidden;
-  margin-top: 10px;
-}
-#content #guri2 #fill {
+#content #guri2 #guri2-fill {
   width: 0;
-  height: 100%;
-  background: #4caf50;
 }
 #content #guri2 #status {
   margin-top: 6px;
   color: #555;
+}
+#content #generate #generate-fill {
+  width: 0;
 }
 
 pre.result-mono {
@@ -103,6 +96,19 @@ pre.result-mono {
   font-family: "Atkinson Hyperlegible Mono", monospace system-ui monospace;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 6px;
+  background: #eee;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #4caf50;
 }
 
 /*# sourceMappingURL=keygen.css.map */

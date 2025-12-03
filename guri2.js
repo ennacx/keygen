@@ -9,12 +9,13 @@
 
 	const PASSIVE_TRUE = { passive: true };
 
+	let initialized = false;
 	let writeIdx = 0;
 	let collectedBits = 0;
 	let done = false;
 
 	const zone = document.getElementById('zone');
-	const fill = document.getElementById('fill');
+	const fill = document.getElementById('guri2-fill');
 	const status = document.getElementById('status');
 	const out = document.getElementById('out');
 	const btnReset = document.getElementById('guri2gen-reset');
@@ -51,6 +52,7 @@
 		if(collectedBits >= TARGET_BITS){
 			if(!done){
 				done = true;
+				zone.textContent = "収集完了！";
 				status.textContent = `${TARGET_BITS}bit分のエントロピーを収集しました。`;
 
 				document.getElementById('generate-button').disabled = false;
@@ -69,15 +71,25 @@
 	};
 
 	const onMouse = (e) => {
-		addEntropy(e.clientX|0, e.clientY|0);
+		if(initialized){
+			addEntropy(e.clientX|0, e.clientY|0);
+		}
 	};
 	const onTouch = (e) => {
-		for(const t of e.touches){
-			addEntropy(t.clientX|0, t.clientY|0);
+		if(initialized){
+			for(const t of e.touches){
+				addEntropy(t.clientX|0, t.clientY|0);
+			}
 		}
 	};
 	const onClick = (e) => {
-		addEntropy((e.clientX ^ e.button)|0, (e.clientY ^ Date.now())|0);
+		if(!initialized){
+			initialized = true;
+
+			zone.textContent = "ここで素早く動かす / クリック / タップ";
+		} else{
+			addEntropy((e.clientX ^ e.button)|0, (e.clientY ^ Date.now())|0);
+		}
 	};
 
 	zone.addEventListener('mousemove', onMouse);
@@ -87,15 +99,17 @@
 
 	btnReset.addEventListener('click', () => {
 		POOL.fill(0);
+		initialized = false;
 		writeIdx = 0;
 		collectedBits = 0;
 		done = false;
 
 		fill.style.width = '0%';
 		status.textContent = getProcessingStatusText();
+		zone.textContent = "クリック / タップで開始";
 		out.textContent = '';
 
-		// 非チェック時は必ずenabled状態
+		// 非チェック時、必ず生成ボタンはenabled状態
 		if(document.getElementById('guri2view').checked){
 			document.getElementById('generate-button').disabled = true;
 		}
