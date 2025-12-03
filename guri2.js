@@ -31,7 +31,7 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 	const fill = document.getElementById('guri2-fill');
 	const status = document.getElementById('status');
 	const out = document.getElementById('out');
-	const btnReset = document.getElementById('guri2gen-reset');
+	const btnReset = document.getElementById('gen-reset');
 
 	/**
 	 * Generates and returns a string indicating the processing status.

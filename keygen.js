@@ -170,26 +170,29 @@ const rfc4253 = {
 };
 
 /**
- * Generates an OpenSSH public key in the "ssh-rsa" format.
+ * Generates an OpenSSH public key and its fingerprint based on a given RSA SPKI buffer.
  *
- * @param {Buffer} spkiBuf - The Subject Public Key Info (SPKI) buffer containing the RSA public key.
- * @param {string} comment - An optional comment to append to the OpenSSH public key.
- * @return {Promise<string>} A promise that resolves to a string representing the OpenSSH public key.
+ * @param {ArrayBuffer} spkiBuf - The SPKI buffer containing the RSA public key.
+ * @return {Promise<{pubkey: string, fingerprint: string}>} A promise resolving to an object containing the OpenSSH public key as `pubkey` and its SHA-256 fingerprint as `fingerprint`.
  */
-async function makeOpenSSHPubKey(spkiBuf, comment) {
+async function makeOpenSSHPubKey(spkiBuf) {
 	const { n, e } = parseRsaSpki(spkiBuf);
-	const b64 = toBase64(rfc4253.concatBytes([
+	const blob = rfc4253.concatBytes([
 		rfc4253.writeString("ssh-rsa"),
 		rfc4253.writeMpint(e),
 		rfc4253.writeMpint(n)
-	]));
+	]);
 
-	let c = '';
-	if(comment.length > 0){
-		c += ` ${comment}`;
-	}
+	const pubkey = toBase64(blob);
+	const digest = await crypto.subtle.digest("SHA-256", blob);
+	const fingerprint = toBase64(digest)
+		// OpenSSH風に末尾の=を削る
+		.replace(/=+$/, "");
 
-	return `ssh-rsa ${b64}${c}`;
+	return {
+		pubkey: pubkey,
+		fingerprint: fingerprint
+	};
 }
 
 /**
@@ -214,21 +217,17 @@ const toPEM = (buffer, label) => {
 }
 
 /**
- * Asynchronously generates a cryptographic key pair based on the specified algorithm and options.
+ * Generates a cryptographic key pair based on the specified algorithm and options.
  *
- * @param {string} name - The name of the cryptographic algorithm, e.g., 'RSA' or 'ECDSA'.
- * @param {Object} opt - The options object that defines algorithm-specific parameters.
- *    - For 'RSA': `{ len: number }` where `len` specifies the modulus length.
- *    - For 'ECDSA': `{ nist: string }` where `nist` represents the named curve (e.g., 'P-256').
- * @param {function(number, number): void} [onProgress] - Optional callback to notify progress during key generation.
- *    It receives the current progress and the total number of steps.
- *
- * @return {Promise<Object>} A promise that resolves to an object containing:
- *    - `public`: The public key in DER encoded format (spki).
- *    - `private`: The private key in DER encoded format (pkcs8).
- *    - `openssh` (optional): The OpenSSH formatted public key (only for 'RSA').
- *
- * @throws {Error} If the specified algorithm is invalid.
+ * @param {string} name - The name of the algorithm to use for key generation (e.g., "RSA", "ECDSA").
+ * @param {Object} opt - Options specific to the algorithm being used. For "RSA", this includes `len` (modulus length). For "ECDSA", this includes `nist` (named curve).
+ * @param {function(number, number):void} [onProgress] - Optional callback function to track generation progress. It is called with the current progress step and the total steps.
+ * @return {Promise<Object>} A promise that resolves to an object containing the keys and related data:
+ * - `public` (ArrayBuffer): The public key in SPKI format.
+ * - `private` (ArrayBuffer): The private key in PKCS8 format.
+ * - `openssh` (string|undefined): The OpenSSH public key (only for RSA).
+ * - `fingerprint` (string|undefined): The fingerprint of the OpenSSH public key (only for RSA).
+ * @throws {Error} If an invalid algorithm name is provided or key generation fails.
  */
 async function generateKey(name, opt, onProgress) {
 	let algo;
@@ -291,12 +290,21 @@ async function generateKey(name, opt, onProgress) {
 	// 秘密DER
 	const pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
 
-	// OpenSSH公開鍵
-	const openssh = (name === 'RSA') ? await makeOpenSSHPubKey(spki, opt.comment) : undefined;
+	// OpenSSH公開鍵・フィンガープリント
+	let opensshPubkey = undefined;
+	let opensshFingerprint = undefined;
+	if(name === 'RSA'){
+		const openssh = await makeOpenSSHPubKey(spki);
+		const comment = opt.comment ? ` ${opt.comment}` : "";
+
+		opensshPubkey = `ssh-rsa ${openssh.pubkey}${comment}`;
+		opensshFingerprint = `ssh-rsa ${opt.len} SHA256:${openssh.fingerprint}`;
+	}
 
 	return {
 		public: spki,
 		private: pkcs8,
-		openssh: openssh
+		openssh: opensshPubkey,
+		fingerprint: opensshFingerprint
 	};
 }

@@ -25,8 +25,8 @@ $(() => {
 	const $rsaLengthRadio = $('#rsa-length-radio');
 	const $ecdsaNistRadio = $('#ecdsa-nist-radio');
 	const $guri2Check = $('input[name="guri2view"]');
-	const $guri2ResetButton = $('button[name="guri2gen-reset"]');
 	const $generateButton = $('button[name="gen"]');
+	const $resetButton = $('button[name="gen-reset"]');
 
 	const algoRadioToggle = () => {
 		const al = $('select[name="algo"] option:selected').val();
@@ -60,7 +60,7 @@ $(() => {
 			$generateButton.prop('disabled', false);
 		}
 
-		$('button#guri2gen-reset').click();
+		$('button#gen-reset').click();
 	};
 
 	guri2zoneToggle($guri2Check.prop('checked'));
@@ -68,7 +68,8 @@ $(() => {
 		guri2zoneToggle($(this).prop('checked'));
 	});
 
-	$guri2ResetButton.click(() => {
+	$resetButton.click(() => {
+		$('pre#pub-fp').text("（未生成）");
 		$('pre#pub').text("（未生成）");
 		$('pre#priv').text("（未生成）");
 		$('#dlPub').prop('disabled', true);
@@ -108,6 +109,7 @@ $(() => {
 		const privatePEM = toPEM(result.private, PRIVKEY_LABEL);
 
 		// 表示用
+		$('#pub-fp').text(result.fingerprint);
 		$('#pub').text(publicPEM);
 		$('#priv').text(privatePEM);
 
