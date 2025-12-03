@@ -32,12 +32,13 @@
         <fieldset id="select">
             <label>アルゴリズム</label>
             <select name="algo" class="form-select">
-                <option value="RSA">RSA</option>
+                <option value="RSA">RSA-PSS</option>
                 <option value="ECDSA">ECDSA</option>
             </select>
 
             <div id="rsa-length-radio" class="d-flex mt-2">
                 <label><input type="radio" name="rsalen" value="2048" checked>2048bit</label>
+                <label><input type="radio" name="rsalen" value="3072">3072bit</label>
                 <label><input type="radio" name="rsalen" value="4096">4096bit</label>
             </div>
             <div id="ecdsa-nist-radio" class="d-flex mt-2">
@@ -83,7 +84,10 @@
             <div>
                 <h3>公開鍵</h3>
                 <pre id="pub" class="result-mono">（未生成）</pre>
-                <button id="dlPub" class="btn btn-sm btn-outline-secondary" disabled>公開鍵をダウンロード</button>
+                <div class="d-flex mt-2">
+                    <button id="dlPub" class="btn btn-sm btn-outline-secondary" disabled>公開鍵をダウンロード</button>
+                    <button id="dlPubOpenSSH" class="btn btn-sm btn-outline-secondary ms-2" disabled>公開鍵をOpenSSH形式でダウンロード</button>
+                </div>
             </div>
 
             <div class="mt-3">

@@ -59,6 +59,7 @@ $(() => {
 		$('pre#pub').text("（未生成）");
 		$('pre#priv').text("（未生成）");
 		$('#dlPub').prop('disabled', true);
+		$('#dlPubOpenSSH').prop('disabled', true);
 		$('#dlPriv').prop('disabled', true);
 
 		$('#generate-fill').width('0%');
@@ -67,7 +68,9 @@ $(() => {
 	$generateButton.click(async function(){
 		const $progress = $('#generate-fill');
 		const al = $('select[name="algo"] option:selected').val();
-		const opt = {};
+		const opt = {
+			comment: ''
+		};
 		const progress = (done, total) => {
 			$progress.width(`${Math.round((done / total) * 100)}%`);
 		};
@@ -79,11 +82,12 @@ $(() => {
 				opt.len = parseInt($('input[name="rsalen"]:checked').val());
 				break;
 			case 'ECDSA':
-				opt.nist = $('input[name="nist"]:checked').val();
+				const nistVal = $('input[name="nist"]:checked').val();
+				opt.nist = `P-${nistVal}`;
 				break;
 		}
 
-		const result = await generateRSA(al, opt, progress);
+		const result = await generateKey(al, opt, progress);
 
 		// 公開PEM
 		const publicPEM  = toPEM(result.public, PUBKEY_LABEL);
@@ -97,5 +101,8 @@ $(() => {
 		// DL用
 		download("dlPub", publicPEM, `id_${al.toLowerCase()}.pub.pem`);
 		download("dlPriv", privatePEM, `id_${al.toLowerCase()}.pem`);
+		if(result.openssh !== undefined){
+			download("dlPubOpenSSH", result.openssh, `id_${al.toLowerCase()}.pub.openssh`);
+		}
 	});
 })
