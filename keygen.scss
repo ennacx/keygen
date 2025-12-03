@@ -15,12 +15,20 @@ $default_font: "Noto Sans JP", sans-serif;
 $mono_font: "Atkinson Hyperlegible Mono", monospace;
 
 body {
+	margin: 16px auto;
+
 	background-color: $bg_color;
 	font-family: $default_font;
 	font-size: 0.93rem;
 	color: $font_color;
 
 	-webkit-font-smoothing: antialiased;
+}
+
+@media (min-width: 719.98px) {
+	body {
+		max-width: 720px;
+	}
 }
 
 a {
@@ -43,6 +51,12 @@ h1 {
 			color: black;
 		}
 	}
+}
+
+h2 {
+	margin-bottom: 16px;
+	font-size: 1.1rem;
+	color: green;
 }
 
 footer {
@@ -99,6 +113,29 @@ footer {
 				margin-right: 4px;
 			}
 		}
+	}
+}
+
+/* iOS Safari限定フォールバック */
+@supports (-webkit-backdrop-filter: none) {
+	footer {
+		-webkit-backdrop-filter: blur(4px);
+		backdrop-filter: blur(4px);
+	}
+
+	.form-control {
+		&:focus {
+			box-shadow: 0 0 3px $dark_color;
+		}
+	}
+}
+
+#subheader {
+	margin-bottom: 24px;
+
+	p {
+		font-size: 0.78rem;
+		color: #878787;
 	}
 }
 
