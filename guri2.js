@@ -1,3 +1,16 @@
+/**
+ * Converts a Uint8Array into a hexadecimal string representation.
+ *
+ * The function iterates over each byte in the input Uint8Array, converts
+ * each byte into its corresponding 2-character hexadecimal string, and
+ * concatenates them into a single string. Each hexadecimal string is
+ * zero-padded to ensure it is exactly 2 characters long.
+ *
+ * @param {Uint8Array} u8arr - The input array of 8-bit unsigned integers to be converted into a hexadecimal string.
+ * @returns {string} A string containing the hexadecimal representation of the input Uint8Array.
+ */
+const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).join('');
+
 (() => {
 	// 目標ビット数 (2bits/ev見積 ⇒ 128サンプル ≒ 256bits)
 	const TARGET_BITS = 256;
@@ -20,8 +33,30 @@
 	const out = document.getElementById('out');
 	const btnReset = document.getElementById('guri2gen-reset');
 
+	/**
+	 * Generates and returns a string indicating the processing status.
+	 *
+	 * The returned string includes the current number of collected bits
+	 * and the target number of bits required.
+	 *
+	 * @function
+	 * @returns {string} The processing status text in the format
+	 *                   "収集中: {collectedBits} / {TARGET_BITS} bits".
+	 */
 	const getProcessingStatusText = () => `収集中: ${collectedBits} / ${TARGET_BITS} bits`;
 
+	/**
+	 * Asynchronously generates and returns a 256-bit (32-byte) seed material.
+	 *
+	 * This function hashes the global entropy pool (`POOL`) using the SHA-256
+	 * algorithm provided by the Web Cryptography API. The resulting hash is
+	 * returned as a `Uint8Array`, which can be used as seed material for further
+	 * cryptographic operations.
+	 *
+	 * @function
+	 * @returns {Promise<Uint8Array>} A promise that resolves to a 256-bit Uint8Array,
+	 * representing the hashed output of the entropy pool.
+	 */
 	const getSeed = async () => {
 		const digest = await crypto.subtle.digest('SHA-256', POOL);
 
@@ -29,8 +64,25 @@
 		return new Uint8Array(digest);
 	};
 
-	const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).join('');
-
+	/**
+	 * Adds entropy to the random number generation pool by incorporating various
+	 * sources of randomness such as the combination of input values, fine-grained
+	 * timing data, and operating system-provided random numbers. This improves
+	 * the overall unpredictability and reduces bias in the entropy pool.
+	 *
+	 * The function makes use of bitwise operations to fold lower bits with higher
+	 * bits from the input values, as lower bits often have more variance. These
+	 * derived values are then mixed into the entropy pool. It also tracks the
+	 * total collected entropy and updates the progress status in the UI.
+	 *
+	 * Once the required amount of entropy has been collected (`TARGET_BITS`),
+	 * the function finalizes the entropy collection process, updates the UI with
+	 * the completion notification, and enables the user interface for subsequent
+	 * actions such as generating a cryptographic seed.
+	 *
+	 * @param {number} x - The first input value to derive entropy from.
+	 * @param {number} y - The second input value to derive entropy from.
+	 */
 	const addEntropy = (x, y) => {
 		// 時刻の微細な揺らぎ (小数) も混ぜる
 		const t = performance.now();

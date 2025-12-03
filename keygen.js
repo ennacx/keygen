@@ -3,10 +3,31 @@ const PRIVKEY_LABEL = "PRIVATE KEY";
 
 let keygenReduceNum = -1;
 
+/**
+ * Parses an SPKI (Subject Public Key Info) buffer specifically for RSA public keys, extracting the modulus and exponent.
+ *
+ * @param {ArrayBuffer|Uint8Array} spkiBuf - The SPKI data buffer (in DER format) from which the RSA public key will be extracted. Can be provided as an `ArrayBuffer` or `Uint8Array`.
+ * @return {Object} An object containing the RSA public key components:
+ * - `n` {Uint8Array}: The modulus of the RSA key.
+ * - `e` {Uint8Array}: The public exponent of the RSA key.
+ * @throws {Error} If the SPKI data is malformed or does not match the expected format.
+ */
 function parseRsaSpki(spkiBuf) {
 	const bytes = (spkiBuf instanceof Uint8Array) ? spkiBuf : new Uint8Array(spkiBuf);
 	let offset = 0;
 
+	/**
+	 * Reads a length value from a byte array, interpreting the value based on the first byte.
+	 *
+	 * If the most significant bit (MSB) of the first byte is not set, the value of the first byte
+	 * directly represents the length. If the MSB is set, the remaining 7 bits of the first byte
+	 * indicate the number of subsequent bytes that represent the length in a big-endian manner.
+	 *
+	 * The function advances the offset position with each byte processed.
+	 *
+	 * @function
+	 * @returns {number} The decoded length value derived from the bytes at the current offset.
+	 */
 	const readLen = () => {
 		let len = bytes[offset++];
 		if(len & 0x80){
@@ -21,6 +42,13 @@ function parseRsaSpki(spkiBuf) {
 		return len;
 	};
 
+	/**
+	 * Validates that the current byte from the input buffer matches the expected ASN.1 tag.
+	 * Increments the offset after reading the byte.
+	 *
+	 * @param {number} tag - The expected ASN.1 tag value to match.
+	 * @throws {Error} If the current byte does not match the expected tag value, an error is thrown with a message including the expected tag.
+	 */
 	const expect = (tag) => {
 		if(bytes[offset++] !== tag){
 			throw new Error(`Unexpected ASN.1 tag, expected 0x${tag.toString(16).padStart(2, '0')}`);
@@ -74,7 +102,19 @@ function parseRsaSpki(spkiBuf) {
 	return { n, e };
 }
 
+/**
+ * A set of utility functions for handling data formats and operations
+ * specified in RFC 4253, focusing on SSH Binary Packet Protocol.
+ */
 const rfc4253 = {
+	/**
+	 * Encodes a given string into a Uint8Array format with a prepended 4-byte unsigned integer
+	 * representing the length of the string in bytes.
+	 *
+	 * @param {string} str - The string to be encoded.
+	 * @returns {Uint8Array} A byte array containing the string length as a 4-byte unsigned integer
+	 * followed by the UTF-8 encoded representation of the string.
+	 */
 	writeString: (str) => {
 		const enc = new TextEncoder();
 		const s = enc.encode(str);
@@ -86,6 +126,14 @@ const rfc4253 = {
 		return out;
 	},
 
+	/**
+	 * Converts a byte array into an mpint (multiple precision integer) format.
+	 * If the most significant bit of the first byte is set to 1, prepends a 0x00 byte to preserve the sign.
+	 * Prepends the length of the byte array as a 4-byte unsigned integer in big-endian format to the output.
+	 *
+	 * @param {Uint8Array} bytes - The input byte array to be converted into mpint format.
+	 * @returns {Uint8Array} A new Uint8Array in mpint format, containing the length prefix and the adjusted byte array.
+	 */
 	writeMpint: (bytes) => {
 		// mpintは先頭bitが1なら 0x00 を前置して符号を守る
 		let b = bytes;
@@ -102,7 +150,12 @@ const rfc4253 = {
 		return out;
 	},
 
-	// 複数Uint8Arrayを連結
+	/**
+	 * Concatenates multiple Uint8Array instances into a single Uint8Array.
+	 *
+	 * @param {Uint8Array[]} arrays - An array of Uint8Array instances to be concatenated.
+	 * @returns {Uint8Array} A new Uint8Array containing the concatenated contents of the input arrays.
+	 */
 	concatBytes: (arrays) => {
 		const len = arrays.reduce((sum, a) => sum + a.length, 0);
 		const out = new Uint8Array(len);
@@ -116,7 +169,14 @@ const rfc4253 = {
 	}
 };
 
-function makeOpenSSHPubKey(spkiBuf, comment) {
+/**
+ * Generates an OpenSSH public key in the "ssh-rsa" format.
+ *
+ * @param {Buffer} spkiBuf - The Subject Public Key Info (SPKI) buffer containing the RSA public key.
+ * @param {string} comment - An optional comment to append to the OpenSSH public key.
+ * @return {Promise<string>} A promise that resolves to a string representing the OpenSSH public key.
+ */
+async function makeOpenSSHPubKey(spkiBuf, comment) {
 	const { n, e } = parseRsaSpki(spkiBuf);
 	const b64 = toBase64(rfc4253.concatBytes([
 		rfc4253.writeString("ssh-rsa"),
@@ -132,27 +192,44 @@ function makeOpenSSHPubKey(spkiBuf, comment) {
 	return `ssh-rsa ${b64}${c}`;
 }
 
+/**
+ * Converts an ArrayBuffer or TypedArray to a Base64-encoded string.
+ *
+ * @param {ArrayBuffer|TypedArray} buffer - The buffer or typed array that is to be converted to a Base64 string.
+ * @returns {string} The Base64-encoded string representation of the input buffer.
+ */
 const toBase64 = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)));
 
+/**
+ * Converts a given buffer into a PEM formatted string.
+ *
+ * @param {Buffer} buffer - The input buffer to be converted.
+ * @param {string} label - The label to prepend and append to the PEM formatted string.
+ * @returns {string} A PEM formatted string containing the base64 representation of the buffer, wrapped by the specified label.
+ */
 const toPEM = (buffer, label) => {
 	const base64 = toBase64(buffer).replace(/(.{64})/g, "$1\n");
 
 	return `-----BEGIN ${label}-----\n${base64}\n-----END ${label}-----`;
 }
 
-function download(id, content, filename) {
-	const btn = document.getElementById(id);
-	btn.disabled = false;
-	btn.onclick = () => {
-		const blob = new Blob([content], { type: "application/x-pem-file" });
-		const a = document.createElement("a");
-		a.href = URL.createObjectURL(blob);
-		a.download = filename;
-		a.click();
-		URL.revokeObjectURL(a.href);
-	};
-}
-
+/**
+ * Asynchronously generates a cryptographic key pair based on the specified algorithm and options.
+ *
+ * @param {string} name - The name of the cryptographic algorithm, e.g., 'RSA' or 'ECDSA'.
+ * @param {Object} opt - The options object that defines algorithm-specific parameters.
+ *    - For 'RSA': `{ len: number }` where `len` specifies the modulus length.
+ *    - For 'ECDSA': `{ nist: string }` where `nist` represents the named curve (e.g., 'P-256').
+ * @param {function(number, number): void} [onProgress] - Optional callback to notify progress during key generation.
+ *    It receives the current progress and the total number of steps.
+ *
+ * @return {Promise<Object>} A promise that resolves to an object containing:
+ *    - `public`: The public key in DER encoded format (spki).
+ *    - `private`: The private key in DER encoded format (pkcs8).
+ *    - `openssh` (optional): The OpenSSH formatted public key (only for 'RSA').
+ *
+ * @throws {Error} If the specified algorithm is invalid.
+ */
 async function generateKey(name, opt, onProgress) {
 	let algo;
 	let keyUsage;
@@ -215,7 +292,7 @@ async function generateKey(name, opt, onProgress) {
 	const pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
 
 	// OpenSSH公開鍵
-	const openssh = (name === 'RSA') ? makeOpenSSHPubKey(spki, opt.comment) : undefined;
+	const openssh = (name === 'RSA') ? await makeOpenSSHPubKey(spki, opt.comment) : undefined;
 
 	return {
 		public: spki,

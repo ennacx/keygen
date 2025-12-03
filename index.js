@@ -8,6 +8,19 @@ if(!window.crypto || typeof window.crypto.getRandomValues !== 'function' || type
 	window.alert("お使いのブラウザでは本機能を使用することが出来ません😢");
 }
 
+function download(id, content, filename) {
+	const btn = document.getElementById(id);
+	btn.disabled = false;
+	btn.onclick = () => {
+		const blob = new Blob([content], { type: "application/x-pem-file" });
+		const a = document.createElement("a");
+		a.href = URL.createObjectURL(blob);
+		a.download = filename;
+		a.click();
+		URL.revokeObjectURL(a.href);
+	};
+}
+
 $(() => {
 	const $rsaLengthRadio = $('#rsa-length-radio');
 	const $ecdsaNistRadio = $('#ecdsa-nist-radio');
