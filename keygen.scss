@@ -147,7 +147,7 @@ footer {
 	padding-bottom: $footer_height + 16px !important;
 
 	#guri2 {
-		& #zone {
+		& #guri2-zone {
 			border: 2px dashed #888;
 			height: 200px;
 			display: grid;
@@ -163,7 +163,7 @@ footer {
 			width: 0;
 		}
 
-		& #status {
+		& #guri2-status {
 			margin-top: 6px;
 			color: #555;
 		}

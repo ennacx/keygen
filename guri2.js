@@ -27,11 +27,13 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 	let collectedBits = 0;
 	let done = false;
 
-	const zone = document.getElementById('zone');
+	const guriCheck = document.getElementById('guri2view');
+	const zone = document.getElementById('guri2-zone');
 	const fill = document.getElementById('guri2-fill');
-	const status = document.getElementById('status');
-	const out = document.getElementById('out');
-	const btnReset = document.getElementById('gen-reset');
+	const status = document.getElementById('guri2-status');
+	const out = document.getElementById('guri2-out');
+	const btnGen = document.getElementById('generate-button');
+	const btnReset = document.getElementById('gen-reset-button');
 
 	/**
 	 * Generates and returns a string indicating the processing status.
@@ -107,14 +109,14 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 				zone.textContent = "収集完了！";
 				status.textContent = `${TARGET_BITS}bit分のエントロピーを収集しました。`;
 
-				document.getElementById('generate-button').disabled = false;
+				btnGen.disabled = false;
 
 				getSeed().then((d) => {
 					keygenReduceNum = d.reduce((a, b) => a ^ b, 0);
 
 					out.textContent = `Seed (SHA-256):\n${toHex(d)}`;
 
-					document.getElementById('generate-button').click();
+					btnGen.click();
 				});
 			}
 		} else{
@@ -144,12 +146,7 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 		}
 	};
 
-	zone.addEventListener('mousemove', onMouse);
-	zone.addEventListener('mousedown', onClick);
-	zone.addEventListener('touchmove', onTouch, PASSIVE_TRUE);
-	zone.addEventListener('touchstart', onTouch, PASSIVE_TRUE);
-
-	btnReset.addEventListener('click', () => {
+	const guri2Reset = () => {
 		POOL.fill(0);
 		initialized = false;
 		writeIdx = 0;
@@ -159,11 +156,18 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 		fill.style.width = '0%';
 		status.textContent = getProcessingStatusText();
 		zone.textContent = "クリック / タップで開始";
-		out.textContent = '';
+		out.textContent = "（未生成）";
 
 		// 非チェック時、必ず生成ボタンはenabled状態
-		if(document.getElementById('guri2view').checked){
-			document.getElementById('generate-button').disabled = true;
+		if(guriCheck.checked){
+			btnGen.disabled = true;
 		}
-	});
+	};
+
+	zone.addEventListener('mousemove', onMouse);
+	zone.addEventListener('mousedown', onClick);
+	zone.addEventListener('touchmove', onTouch, PASSIVE_TRUE);
+	zone.addEventListener('touchstart', onTouch, PASSIVE_TRUE);
+
+	btnReset.addEventListener('click', guri2Reset);
 })();

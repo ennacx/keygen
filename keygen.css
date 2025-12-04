@@ -107,7 +107,7 @@ footer ul.copy-links li i {
 #content {
   padding-bottom: 52px !important;
 }
-#content #guri2 #zone {
+#content #guri2 #guri2-zone {
   border: 2px dashed #888;
   height: 200px;
   display: grid;
@@ -117,7 +117,7 @@ footer ul.copy-links li i {
 #content #guri2 #guri2-fill {
   width: 0;
 }
-#content #guri2 #status {
+#content #guri2 #guri2-status {
   margin-top: 6px;
   color: #555;
 }

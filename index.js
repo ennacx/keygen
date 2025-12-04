@@ -1,7 +1,11 @@
+let runnable = true;
+
 // Crypt実装チェック
 if(!window.crypto || !window.crypto.subtle || typeof window.crypto.getRandomValues !== 'function'){
+	runnable = false;
+
 	// 全ボタン無効化
-	$('button').each(function(idx, elem){
+	$('button, input, select').each(function(idx, elem){
 		$(elem).prop('disabled', true);
 	});
 
@@ -25,8 +29,25 @@ $(() => {
 	const $rsaLengthRadio = $('#rsa-length-radio');
 	const $ecdsaNistRadio = $('#ecdsa-nist-radio');
 	const $guri2Check = $('input[name="guri2view"]');
-	const $generateButton = $('button[name="gen"]');
-	const $resetButton = $('button[name="gen-reset"]');
+	const $generateButton = $('button[name="generate-button"]');
+	const $resetButton = $('button[name="gen-reset-button"]');
+	const $errorAlert = $('#error-alert');
+
+	const genUiReset = () => {
+		$('pre#pub-fp').text("（未生成）");
+		$('pre#pub-openssh').text("（未生成）");
+		$('pre#pub').text("（未生成）");
+		$('pre#priv').text("（未生成）");
+
+		$errorAlert.hide();
+		$errorAlert.empty();
+
+		$('#dlPub').prop('disabled', true);
+		$('#dlPubOpenSSH').prop('disabled', true);
+		$('#dlPriv').prop('disabled', true);
+
+		$('#generate-fill').width('0%');
+	};
 
 	const algoRadioToggle = () => {
 		const al = $('select[name="algo"] option:selected').val();
@@ -46,14 +67,20 @@ $(() => {
 	$('select[name="algo"]').change(algoRadioToggle);
 
 	const guri2zoneToggle = (checked) => {
+		if(!runnable){
+			return;
+		}
+
+		$resetButton.click();
+
 		if(checked){
-			$('#guri2-zone').show(200);
+			$('#guri2-field').show(200);
 
 			keygenReduceNum = 0;
 
 			$generateButton.prop('disabled', true);
 		} else{
-			$('#guri2-zone').hide(200);
+			$('#guri2-field').hide(200);
 
 			keygenReduceNum = -1;
 
@@ -69,18 +96,18 @@ $(() => {
 	});
 
 	$resetButton.click(() => {
-		$('pre#pub-fp').text("（未生成）");
-		$('pre#pub-openssh').text("（未生成）");
-		$('pre#pub').text("（未生成）");
-		$('pre#priv').text("（未生成）");
-		$('#dlPub').prop('disabled', true);
-		$('#dlPubOpenSSH').prop('disabled', true);
-		$('#dlPriv').prop('disabled', true);
+		if(!runnable){
+			return;
+		}
 
-		$('#generate-fill').width('0%');
+		genUiReset();
 	});
 
 	$generateButton.click(async () => {
+		if(!runnable){
+			return;
+		}
+
 		const al = $('select[name="algo"] option:selected').val();
 		const opt = {
 			comment: ''
@@ -91,8 +118,7 @@ $(() => {
 			$progress.width(`${Math.round((done / total) * 100)}%`);
 		};
 
-		$resetButton.click();
-		$progress.width('0%');
+		progress(0, 1);
 
 		switch(al){
 			case 'RSA':
@@ -110,24 +136,28 @@ $(() => {
 				break;
 		}
 
-		const result = await generateKey(al, opt, progress);
+		try {
+			const result = await generateKey(al, opt, progress);
 
-		// 公開PEM
-		const publicPEM  = toPEM(result.public, PUBKEY_LABEL);
-		// 秘密PEM
-		const privatePEM = toPEM(result.private, PRIVKEY_LABEL);
+			// 公開PEM
+			const publicPEM  = toPEM(result.public, PUBKEY_LABEL);
+			// 秘密PEM
+			const privatePEM = toPEM(result.private, PRIVKEY_LABEL);
 
-		// 表示用
-		$('#pub-fp').text(result.fingerprint);
-		$('#pub-openssh').text(result.openssh);
-		$('#pub').text(publicPEM);
-		$('#priv').text(privatePEM);
+			// 表示用
+			$('#pub-fp').text(result.fingerprint);
+			$('#pub-openssh').text(result.openssh);
+			$('#pub').text(publicPEM);
+			$('#priv').text(privatePEM);
 
-		// DL用
-		download("dlPub", publicPEM, `id_${al.toLowerCase()}.pub.pem`);
-		download("dlPriv", privatePEM, `id_${al.toLowerCase()}.pem`);
-		if(result.openssh !== undefined){
-			download("dlPubOpenSSH", result.openssh, `authorized_keys`);
+			// DL用
+			download("dlPub", publicPEM, `id_${al.toLowerCase()}.pub.pem`);
+			download("dlPriv", privatePEM, `id_${al.toLowerCase()}.pem`);
+			if(result.openssh !== undefined){
+				download("dlPubOpenSSH", result.openssh, `authorized_keys`);
+			}
+		} catch(e) {
+			$errorAlert.text(e.message).show();
 		}
 	});
 })

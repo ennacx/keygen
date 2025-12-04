@@ -423,17 +423,21 @@ const toPEM = (buffer, label) => {
 }
 
 /**
- * Generates a cryptographic key pair based on the specified algorithm and options.
+ * Generates a cryptographic key pair based on the specified algorithm and options, and provides both the DER-encoded keys and OpenSSH-compatible keys and fingerprint information.
  *
- * @param {string} name - The name of the algorithm to use for key generation (e.g., "RSA", "ECDSA").
- * @param {Object} opt - Options specific to the algorithm being used. For "RSA", this includes `len` (modulus length). For "ECDSA", this includes `nist` (named curve).
- * @param {function(number, number):void} [onProgress] - Optional callback function to track generation progress. It is called with the current progress step and the total steps.
- * @return {Promise<Object>} A promise that resolves to an object containing the keys and related data:
- * - `public` (ArrayBuffer): The public key in SPKI format.
- * - `private` (ArrayBuffer): The private key in PKCS8 format.
- * - `openssh` (string|undefined): The OpenSSH public key (only for RSA).
- * - `fingerprint` (string|undefined): The fingerprint of the OpenSSH public key (only for RSA).
- * @throws {Error} If an invalid algorithm name is provided or key generation fails.
+ * @param {string} name - The name of the algorithm to use for key generation. Supported values are 'RSA' and 'ECDSA'.
+ * @param {Object} opt - The options for key generation.
+ * @param {number} opt.len - The key length in bits for RSA or security level for ECDSA.
+ * @param {string} [opt.nist] - The named curve for ECDSA (e.g., 'P-256', 'P-384', 'P-521').
+ * @param {string} [opt.comment] - An optional comment to include in the OpenSSH public key.
+ * @param {string} opt.prefix - The prefix to include in the OpenSSH public key and fingerprint.
+ * @param {function} [onProgress] - A callback function that is called with progress updates during key generation. It receives two arguments: the number of steps completed and the total number of steps.
+ * @return {Promise<Object>} A promise that resolves to an object containing the generated keys and OpenSSH-compatible data:
+ * - `public`: The DER-encoded public key in SPKI format.
+ * - `private`: The DER-encoded private key in PKCS8 format.
+ * - `openssh`: The OpenSSH-compatible public key string.
+ * - `fingerprint`: The OpenSSH-compatible fingerprint as a string.
+ * @throws {Error} If an invalid algorithm name is provided.
  */
 async function generateKey(name, opt, onProgress) {
 	let algo;
@@ -499,8 +503,8 @@ async function generateKey(name, opt, onProgress) {
 	const pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
 
 	// OpenSSH公開鍵・フィンガープリント
-	let opensshPubkey = undefined;
-	let opensshFingerprint = undefined;
+	let opensshPubkey;
+	let opensshFingerprint;
 	switch(name){
 		case "RSA":
 			const rsaOpenssh = await makeRsaOpenSSHPubKey(spki);
