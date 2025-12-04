@@ -41,18 +41,20 @@
             </select>
 
             <div id="rsa-length-radio" class="d-flex mt-2">
-                <label><input type="radio" name="rsalen" value="2048" checked>2048bit</label>
-                <label><input type="radio" name="rsalen" value="3072">3072bit</label>
-                <label><input type="radio" name="rsalen" value="4096">4096bit</label>
+                <label><input type="radio" name="rsalen" value="2048" class="me-1" checked>2048bit</label>
+                <label class="ms-2"><input type="radio" name="rsalen" value="3072" class="me-1">3072bit</label>
+                <label class="ms-2"><input type="radio" name="rsalen" value="4096" class="me-1">4096bit</label>
             </div>
             <div id="ecdsa-nist-radio" class="d-flex mt-2">
-                <label><input type="radio" name="nist" value="256" checked>P-256</label>
-                <label><input type="radio" name="nist" value="384">P-384</label>
-                <label><input type="radio" name="nist" value="521">P-521</label>
+                <label><input type="radio" name="nist" value="256" class="me-1" checked>P-256</label>
+                <label class="ms-2"><input type="radio" name="nist" value="384" class="me-1">P-384</label>
+                <label class="ms-2"><input type="radio" name="nist" value="521" class="me-1">P-521</label>
             </div>
 
-            <label>コメント</label>
-            <input type="text" name="comment" class="form-control">
+            <div class="mt-2">
+                <label>コメント</label>
+                <input type="text" name="comment" class="form-control">
+            </div>
         </fieldset>
 
         <fieldset id="guri2" class="mt-3">
@@ -91,9 +93,9 @@
 
         <fieldset id="result" class="mt-3">
             <div class="card">
-                <div class="card-header d-flex">
+                <div data-bs-toggle="collapse" data-bs-target="#pubkey-field" aria-expanded="false" aria-controls="pubkey-field" role="button" class="card-header d-flex">
                     <h3>Public Key🔑</h3>
-                    <button type="button" data-bs-toggle="collapse" data-bs-target="#pubkey-field" aria-expanded="false" aria-controls="pubkey-field" class="btn btn-sm ms-auto"><i class="bi bi-caret-down-fill"></i></button>
+                    <span class="ms-auto" style="margin-top: 4px;"><i class="bi bi-caret-down-fill"></i></span>
                 </div>
                 <div class="card-body">
                     <h4 class="pre-title">OpenSSH Fingerprint🌀</h4>
@@ -114,9 +116,9 @@
             </div>
 
             <div class="card mt-3">
-                <div class="card-header d-flex">
+                <div data-bs-toggle="collapse" data-bs-target="#privkey-field" aria-expanded="false" aria-controls="privkey-field" role="button" class="card-header d-flex">
                     <h3>Private Key🔒</h3>
-                    <button type="button" data-bs-toggle="collapse" data-bs-target="#privkey-field" aria-expanded="false" aria-controls="privkey-field" class="btn btn-sm ms-auto"><i class="bi bi-caret-down-fill"></i></button>
+                    <span class="ms-auto" style="margin-top: 4px;"><i class="bi bi-caret-down-fill"></i></span>
                 </div>
                 <div class="card-body">
                     <div id="privkey-field" class="collapse mb-2">

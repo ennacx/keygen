@@ -1,3 +1,8 @@
+/**
+ * Represents a parser for decoding RSA and ECDSA SubjectPublicKeyInfo structures.
+ * This class provides methods to extract relevant public key components such as
+ * modulus, exponent, curve name, and EC points from their respective binary formats.
+ */
 class Parser {
 	#bytes;
 	#offset = 0;
@@ -14,8 +19,7 @@ class Parser {
 	}
 
 	/**
-	 * Parses an RSA SubjectPublicKeyInfo structure to extract the modulus and exponent components
-	 * of an RSA public key.
+	 * Parses an RSA SubjectPublicKeyInfo structure to extract the modulus and exponent components of an RSA public key.
 	 *
 	 * @return {Object} An object containing the RSA public key details:
 	 *                  - `name`: The key algorithm name (always "ssh-rsa" for RSA keys).
