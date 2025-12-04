@@ -43,6 +43,10 @@ h3 {
   font-size: 1.15rem;
 }
 
+h4.pre-title {
+  font-size: 0.88rem;
+}
+
 footer {
   text-align: right;
   font-size: 0.67rem;

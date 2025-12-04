@@ -110,7 +110,7 @@ $(() => {
 
 		const al = $('select[name="algo"] option:selected').val();
 		const opt = {
-			comment: ''
+			comment: $('input[name="comment"]').val().replace(/[^0-9a-z\-_]/g, '')
 		};
 
 		const $progress = $('#generate-fill');

@@ -50,6 +50,9 @@
                 <label><input type="radio" name="nist" value="384">P-384</label>
                 <label><input type="radio" name="nist" value="521">P-521</label>
             </div>
+
+            <label>コメント</label>
+            <input type="text" name="comment" class="form-control">
         </fieldset>
 
         <fieldset id="guri2" class="mt-3">
@@ -89,14 +92,17 @@
         <fieldset id="result" class="mt-3">
             <div class="card">
                 <div class="card-header d-flex">
-                    <h3>Public Key</h3>
+                    <h3>Public Key🔑</h3>
                     <button type="button" data-bs-toggle="collapse" data-bs-target="#pubkey-field" aria-expanded="false" aria-controls="pubkey-field" class="btn btn-sm ms-auto"><i class="bi bi-caret-down-fill"></i></button>
                 </div>
                 <div class="card-body">
+                    <h4 class="pre-title">OpenSSH Fingerprint🌀</h4>
                     <pre id="pub-fp" class="result-mono">（未生成）</pre>
+                    <h4 class="pre-title">OpenSSH PublicKey🔑</h4>
                     <pre id="pub-openssh" class="result-mono">（未生成）</pre>
 
                     <div id="pubkey-field" class="collapse">
+                        <h4 class="pre-title">PEM🔑</h4>
                         <pre id="pub" class="result-mono">（未生成）</pre>
                     </div>
 
@@ -109,11 +115,12 @@
 
             <div class="card mt-3">
                 <div class="card-header d-flex">
-                    <h3>Private Key</h3>
+                    <h3>Private Key🔒</h3>
                     <button type="button" data-bs-toggle="collapse" data-bs-target="#privkey-field" aria-expanded="false" aria-controls="privkey-field" class="btn btn-sm ms-auto"><i class="bi bi-caret-down-fill"></i></button>
                 </div>
                 <div class="card-body">
                     <div id="privkey-field" class="collapse mb-2">
+                        <h4 class="pre-title">PEM🔒</h4>
                         <pre id="priv" class="result-mono">（未生成）</pre>
                     </div>
 
