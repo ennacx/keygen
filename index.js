@@ -70,6 +70,7 @@ $(() => {
 
 	$resetButton.click(() => {
 		$('pre#pub-fp').text("（未生成）");
+		$('pre#pub-openssh').text("（未生成）");
 		$('pre#pub').text("（未生成）");
 		$('pre#priv').text("（未生成）");
 		$('#dlPub').prop('disabled', true);
@@ -79,25 +80,33 @@ $(() => {
 		$('#generate-fill').width('0%');
 	});
 
-	$generateButton.click(async function(){
-		const $progress = $('#generate-fill');
+	$generateButton.click(async () => {
 		const al = $('select[name="algo"] option:selected').val();
 		const opt = {
 			comment: ''
 		};
+
+		const $progress = $('#generate-fill');
 		const progress = (done, total) => {
 			$progress.width(`${Math.round((done / total) * 100)}%`);
 		};
 
+		$resetButton.click();
 		$progress.width('0%');
 
 		switch(al){
 			case 'RSA':
-				opt.len = parseInt($('input[name="rsalen"]:checked').val());
+				const val = $('input[name="rsalen"]:checked').val();
+
+				opt.prefix = 'ssh-rsa';
+				opt.len = parseInt(val);
 				break;
 			case 'ECDSA':
 				const nistVal = $('input[name="nist"]:checked').val();
+
 				opt.nist = `P-${nistVal}`;
+				opt.len = parseInt(nistVal);
+				opt.prefix = 'ecdsa-sha2-nist' + opt.nist.replace(/\-/g, '').toLowerCase();
 				break;
 		}
 
@@ -110,6 +119,7 @@ $(() => {
 
 		// 表示用
 		$('#pub-fp').text(result.fingerprint);
+		$('#pub-openssh').text(result.openssh);
 		$('#pub').text(publicPEM);
 		$('#priv').text(privatePEM);
 
@@ -117,7 +127,7 @@ $(() => {
 		download("dlPub", publicPEM, `id_${al.toLowerCase()}.pub.pem`);
 		download("dlPriv", privatePEM, `id_${al.toLowerCase()}.pem`);
 		if(result.openssh !== undefined){
-			download("dlPubOpenSSH", result.openssh, `id_${al.toLowerCase()}.pub.openssh`);
+			download("dlPubOpenSSH", result.openssh, `authorized_keys`);
 		}
 	});
 })
