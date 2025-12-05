@@ -352,14 +352,7 @@ async function makeEcdsaPrivateBlob(privateKey) {
  * @param {number} [width=64] - The maximum width of a line before wrapping. Defaults to 64 if not provided.
  * @returns {string} The string formatted with line breaks.
  */
-function stringWrap(str, width = 64) {
-	return str
-		.replace(
-			new RegExp(`(.{1,${width}})`, "g"),
-			(m, g1) => (g1) ? `${g1}\n` : ""
-		)
-		.trimEnd();
-}
+const stringWrap = (str, width = 64) => str.replace(new RegExp(`(.{1,${width}})`, "g"), (match, grp1) => (grp1) ? `${grp1}\n` : "").trimEnd();
 
 /**
  * Converts an ArrayBuffer or TypedArray to a Base64-encoded string.
@@ -382,7 +375,7 @@ const fromBase64 = (b64) => {
 	}
 
 	let s = b64.replace(/\-/g, '+').replace(/_/g, '/');
-	while(s.length % 4){
+	while(s.length % 4 > 0){
 		s += "=";
 	}
 
@@ -403,7 +396,7 @@ const fromBase64 = (b64) => {
  * @returns {string} A PEM formatted string containing the base64 representation of the buffer, wrapped by the specified label.
  */
 const toPEM = (buffer, label) => {
-	const base64 = toBase64(buffer).replace(/(.{64})/g, "$1\n");
+	const base64 = stringWrap(toBase64(buffer), 64);
 
 	return `-----BEGIN ${label}-----\n${base64}\n-----END ${label}-----`;
 }
