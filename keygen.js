@@ -312,6 +312,7 @@ async function makeEcdsaOpenSSHPubKey(spkiBuf) {
 async function makeRsaPrivateBlob(privateKey) {
 	const jwk = await crypto.subtle.exportKey("jwk", privateKey);
 
+	// RSAでは d, p, q, qinv
 	const d  = fromBase64(jwk.d);
 	const p  = fromBase64(jwk.p);
 	const q  = fromBase64(jwk.q);
@@ -323,6 +324,22 @@ async function makeRsaPrivateBlob(privateKey) {
 		rfc4253.writeMpint(q),
 		rfc4253.writeMpint(qi),
 	]);
+}
+
+/**
+ * Generates an ECDSA private key blob in the appropriate format.
+ *
+ * @param {CryptoKey} privateKey - The ECDSA private key to be exported and processed.
+ * @return {Promise<Uint8Array>} A promise that resolves to the ECDSA private key blob represented as a byte array.
+ */
+async function makeEcdsaPrivateBlob(privateKey) {
+	const jwk = await crypto.subtle.exportKey("jwk", privateKey);
+
+	// ECDSAでは d だけ
+	const d = fromBase64(jwk.d);
+
+	// PPKv3の`C.3.3: NIST EC keys`は`mpint(d)`だけ
+	return rfc4253.writeMpint(d);
 }
 
 /**
@@ -522,18 +539,61 @@ const forPPK = {
 	/**
 	 * Generates an RSA PPK (PuTTY Private Key) file in the format of PuTTY-User-Key-File-3.
 	 *
-	 * @param {Object} keyPair - An object containing the RSA key pair. It must include the private key.
+	 * @param {string} algorithmName - The name of the encryption algorithm to be used (e.g., ssh-rsa).
+	 * @param {CryptoKeyPair} keyPair - An object containing the RSA key pair. It must include the private key.
 	 * @param {string} comment - A textual comment to include in the PPK file.
 	 * @param {Uint8Array} pubBlob - RSA public key.
 	 * @param {string} [encryption="none"] - Specifies the encryption type for the private key. Defaults to "none".
 	 * @returns {Promise<string>} A string representing the complete contents of the PPK file.
 	 */
-	makeRsaPpkV3: async (keyPair, comment, pubBlob, encryption = "none") => {
-		const algorithmName = "ssh-rsa";
-
+	makeRsaPpkV3: async (algorithmName, keyPair, comment, pubBlob, encryption = "none") => {
 		const pubB64 = toBase64(pubBlob);
 
 		const privBlob = await makeRsaPrivateBlob(keyPair.privateKey);
+		const privB64 = toBase64(privBlob);
+
+		const pubLines = stringWrap(pubB64);
+		const privLines = stringWrap(privB64);
+
+		const pubLineCount = pubLines.split("\n").length;
+		const prvLineCount = privLines.split("\n").length;
+
+		const macHex = await forPPK.computeMac(
+			algorithmName,
+			encryption,
+			comment,
+			pubBlob,
+			privBlob,
+			null
+		);
+
+		const ret =
+			`PuTTY-User-Key-File-3: ${algorithmName}\n` +
+			`Encryption: ${encryption}\n` +
+			`Comment: ${comment}\n` +
+			`Public-Lines: ${pubLineCount}\n` +
+			`${pubLines}\n` +
+			`Private-Lines: ${prvLineCount}\n` +
+			`${privLines}\n` +
+			`Private-MAC: ${macHex}\n`;
+
+		return ret;
+	},
+
+	/**
+	 * Generates an ECDSA PPK (PuTTY Private Key) file in the format of PuTTY-User-Key-File-3.
+	 *
+	 * @param {string} algorithmName - The name of the encryption algorithm to be used (e.g., ecdsa-sha2-nistp2256).
+	 * @param {CryptoKeyPair} keyPair - An object containing the ECDSA key pair. It must include the private key.
+	 * @param {string} comment - A textual comment to include in the PPK file.
+	 * @param {Uint8Array} pubBlob - ECDSA public key.
+	 * @param {string} [encryption="none"] - Specifies the encryption type for the private key. Defaults to "none".
+	 * @returns {Promise<string>} A string representing the complete contents of the PPK file.
+	 */
+	makeEcdsaPpkV3: async (algorithmName, keyPair, comment, pubBlob, encryption = "none") => {
+		const pubB64 = toBase64(pubBlob);
+
+		const privBlob = await makeEcdsaPrivateBlob(keyPair.privateKey);
 		const privB64 = toBase64(privBlob);
 
 		const pubLines = stringWrap(pubB64);
@@ -579,7 +639,7 @@ const forPPK = {
  * - `public`: The DER-encoded public key in SPKI format.
  * - `private`: The DER-encoded private key in PKCS8 format.
  * - `openssh`: The OpenSSH-compatible public key string.
- * - `ppk` {string | undefined}: PuTTY private key in PPK format (only for RSA).
+ * - `ppk` PuTTY private key in PPK format.
  * - `fingerprint`: The OpenSSH-compatible fingerprint as a string.
  * @throws {Error} If an invalid algorithm name is provided.
  */
@@ -656,7 +716,7 @@ async function generateKey(name, opt, onProgress) {
 
 			opensshPubkey = `${opt.prefix} ${rsaOpenssh.pubkey}` + ((comment !== undefined && comment !== '') ? ` ${comment}` : "");
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${rsaOpenssh.fingerprint}`;
-			ppk = await forPPK.makeRsaPpkV3(keyPair, comment, rsaOpenssh.raw, "none");
+			ppk = await forPPK.makeRsaPpkV3(opt.prefix, keyPair, comment, rsaOpenssh.raw, "none");
 			break;
 
 		case "ECDSA":
@@ -664,6 +724,7 @@ async function generateKey(name, opt, onProgress) {
 
 			opensshPubkey = `${opt.prefix} ${ecdsaOpenssh.pubkey}` + ((comment !== undefined && comment !== '') ? ` ${comment}` : "");
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${ecdsaOpenssh.fingerprint}`;
+			ppk = await forPPK.makeEcdsaPpkV3(opt.prefix, keyPair, comment, ecdsaOpenssh.raw, "none");
 			break;
 	}
 
