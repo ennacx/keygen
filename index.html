@@ -34,7 +34,7 @@
         </div>
 
         <fieldset id="select">
-            <label>アルゴリズム</label>
+            <label>Algorithm:</label>
             <select name="algo" class="form-select">
                 <option value="RSA">RSA-PSS</option>
                 <option value="ECDSA">ECDSA</option>
@@ -52,8 +52,8 @@
             </div>
 
             <div class="mt-2">
-                <label>コメント</label>
-                <input type="text" name="comment" class="form-control">
+                <label>Comment:</label>
+                <input type="text" name="comment" class="form-control" autocomplete="off">
             </div>
         </fieldset>
 
@@ -71,10 +71,12 @@
                     <div id="guri2-status" class="ms-auto">収集中: 0 / 256 bits</div>
                 </div>
 
-                <pre id="guri2-out" class="result-mono mt-2">（未生成）</pre>
+                <pre id="guri2-out" class="result-mono mt-2">(Ungenerated)</pre>
 
-                <p>生成したシードはWebCryptoのgenerateKeyに渡せないため、選別用に使用します。</p>
-                <p class="d-none">このseedは鍵生成の“採用選択”や保存時マスクなどに利用</p>
+                <p class="d-none">
+                    生成したシードはWebCryptoのgenerateKeyに渡せないため、選別用に使用します。
+                    このseedは鍵生成の“採用選択”や保存時マスクなどに利用。
+                </p>
             </div>
         </fieldset>
 
@@ -99,13 +101,13 @@
                 </div>
                 <div class="card-body">
                     <h4 class="pre-title">OpenSSH Fingerprint🌀</h4>
-                    <pre id="pub-fp" class="result-mono">（未生成）</pre>
+                    <pre id="pub-fp" class="result-mono">(Ungenerated)</pre>
                     <h4 class="pre-title">OpenSSH PublicKey🔑</h4>
-                    <pre id="pub-openssh" class="result-mono">（未生成）</pre>
+                    <pre id="pub-openssh" class="result-mono">(Ungenerated)</pre>
 
                     <div id="pubkey-field" class="collapse">
                         <h4 class="pre-title">PEM🔑</h4>
-                        <pre id="pub" class="result-mono">（未生成）</pre>
+                        <pre id="pub" class="result-mono">(Ungenerated)</pre>
                     </div>
 
                     <div class="d-flex mt-2">
@@ -123,11 +125,12 @@
                 <div class="card-body">
                     <div id="privkey-field" class="collapse mb-2">
                         <h4 class="pre-title">PEM🔒</h4>
-                        <pre id="priv" class="result-mono">（未生成）</pre>
+                        <pre id="priv" class="result-mono">(Ungenerated)</pre>
                     </div>
 
                     <div class="d-flex">
-                        <button type="button" name="dlPriv" id="dlPriv" class="btn btn-sm btn-outline-secondary" disabled>Download (PEM)</button>
+                        <button type="button" name="dlPrivPpk" id="dlPrivPpk" class="btn btn-sm btn-outline-secondary" disabled>Download (PPK)</button>
+                        <button type="button" name="dlPriv" id="dlPriv" class="btn btn-sm btn-outline-secondary ms-2" disabled>Download (PEM)</button>
                     </div>
                 </div>
             </div>

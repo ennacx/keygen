@@ -34,10 +34,10 @@ $(() => {
 	const $errorAlert = $('#error-alert');
 
 	const genUiReset = () => {
-		$('pre#pub-fp').text("（未生成）");
-		$('pre#pub-openssh').text("（未生成）");
-		$('pre#pub').text("（未生成）");
-		$('pre#priv').text("（未生成）");
+		$('pre#pub-fp').text("(Ungenerated)");
+		$('pre#pub-openssh').text("(Ungenerated)");
+		$('pre#pub').text("(Ungenerated)");
+		$('pre#priv').text("(Ungenerated)");
 
 		$errorAlert.hide();
 		$errorAlert.empty();
@@ -45,6 +45,7 @@ $(() => {
 		$('#dlPub').prop('disabled', true);
 		$('#dlPubOpenSSH').prop('disabled', true);
 		$('#dlPriv').prop('disabled', true);
+		$('#dlPrivPpk').prop('disabled', true);
 
 		$('#generate-fill').width('0%');
 	};
@@ -95,6 +96,9 @@ $(() => {
 		guri2zoneToggle($(this).prop('checked'));
 	});
 
+	/*
+	 * リセットボタン押下
+	 */
 	$resetButton.click(() => {
 		if(!runnable){
 			return;
@@ -103,6 +107,9 @@ $(() => {
 		genUiReset();
 	});
 
+	/*
+	 * 生成ボタン押下
+	 */
 	$generateButton.click(async () => {
 		if(!runnable){
 			return;
@@ -152,9 +159,12 @@ $(() => {
 
 			// DL用
 			download("dlPub", publicPEM, `id_${al.toLowerCase()}.pub.pem`);
+			download("dlPubOpenSSH", result.openssh, `authorized_keys`);
 			download("dlPriv", privatePEM, `id_${al.toLowerCase()}.pem`);
-			if(result.openssh !== undefined){
-				download("dlPubOpenSSH", result.openssh, `authorized_keys`);
+			if(result.ppk !== undefined){
+				download("dlPrivPpk", result.ppk, `id_${al.toLowerCase()}.ppk`);
+			} else{
+				$('#dlPrivPpk').prop('disabled', true);
 			}
 		} catch(e) {
 			$errorAlert.text(e.message).show();

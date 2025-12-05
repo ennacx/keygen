@@ -156,7 +156,7 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 		fill.style.width = '0%';
 		status.textContent = getProcessingStatusText();
 		zone.textContent = "クリック / タップで開始";
-		out.textContent = "（未生成）";
+		out.textContent = "(Ungenerated)";
 
 		// 非チェック時、必ず生成ボタンはenabled状態
 		if(guriCheck.checked){

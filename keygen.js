@@ -194,7 +194,7 @@ class Parser {
 	 * @return {void} Does not return a value.
 	 */
 	#reset() {
-		this.#bytes = new Uint8Array([]);
+		this.#bytes = new Uint8Array(0);
 		this.#offset = 0;
 	}
 
@@ -237,95 +237,6 @@ const PRIVKEY_LABEL = "PRIVATE KEY";
 let keygenReduceNum = -1;
 
 /**
- * A set of utility functions for handling data formats and operations
- * specified in RFC 4253, focusing on SSH Binary Packet Protocol.
- */
-const rfc4253 = {
-	/**
-	 * Encodes a given string into a Uint8Array format with a prepended 4-byte unsigned integer
-	 * representing the length of the string in bytes.
-	 *
-	 * @param {string} str - The string to be encoded.
-	 * @returns {Uint8Array} A byte array containing the string length as a 4-byte unsigned integer
-	 *                       followed by the UTF-8 encoded representation of the string.
-	 */
-	writeString: (str) => {
-		const enc = new TextEncoder();
-		const s = enc.encode(str);
-
-		const out = new Uint8Array(4 + s.length);
-		const view = new DataView(out.buffer);
-		view.setUint32(0, s.length);
-		out.set(s, 4);
-
-		return out;
-	},
-
-	/**
-	 * Converts the given input into a Uint8Array, calculates its length, and returns a new Uint8Array
-	 * where the first 4 bytes represent the length of the input array and the remaining bytes
-	 * contain the input data.
-	 *
-	 * @param {ArrayBuffer | Uint8Array} bytes - The input that will be converted to a Uint8Array.
-	 *                                           If it is not already a Uint8Array, it will be wrapped in one.
-	 * @returns {Uint8Array} A new Uint8Array where the first 4 bytes encode the length of the input data,
-	 *                       followed by the data itself.
-	 */
-	writeStringBytes: (bytes) => {
-		const b = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes);
-
-		const out = new Uint8Array(4 + b.length);
-		const view = new DataView(out.buffer);
-		view.setUint32(0, b.length);
-		out.set(b, 4);
-
-		return out;
-	},
-
-	/**
-	 * Converts a byte array into an mpint (multiple precision integer) format.
-	 * If the most significant bit of the first byte is set to 1, prepends a 0x00 byte to preserve the sign.
-	 * Prepends the length of the byte array as a 4-byte unsigned integer in big-endian format to the output.
-	 *
-	 * @param {Uint8Array} bytes - The input byte array to be converted into mpint format.
-	 * @returns {Uint8Array} A new Uint8Array in mpint format, containing the length prefix and the adjusted byte array.
-	 */
-	writeMpint: (bytes) => {
-		// mpintは先頭bitが1なら 0x00 を前置して符号を守る
-		let b = bytes;
-		if(b.length > 0 && (b[0] & 0x80)){
-			const tmp = new Uint8Array(b.length + 1);
-			tmp.set(b, 1);
-			b = tmp;
-		}
-		const out = new Uint8Array(4 + b.length);
-		const view = new DataView(out.buffer);
-		view.setUint32(0, b.length);
-		out.set(b, 4);
-
-		return out;
-	},
-
-	/**
-	 * Concatenates multiple Uint8Array instances into a single Uint8Array.
-	 *
-	 * @param {Uint8Array[]} arrays - An array of Uint8Array instances to be concatenated.
-	 * @returns {Uint8Array} A new Uint8Array containing the concatenated contents of the input arrays.
-	 */
-	concatBytes: (arrays) => {
-		const len = arrays.reduce((sum, a) => sum + a.length, 0);
-		const out = new Uint8Array(len);
-		let offset = 0;
-		for(const a of arrays){
-			out.set(a, offset);
-			offset += a.length;
-		}
-
-		return out;
-	}
-};
-
-/**
  * Generates a SHA-256 fingerprint of the given data and converts it to a base64-encoded string without trailing equals signs.
  *
  * @param {ArrayBuffer} blob - The input data to generate the fingerprint for.
@@ -342,7 +253,8 @@ async function makeFingerprint(blob) {
  * Generates an OpenSSH public key in RSA format from a given SPKI buffer.
  *
  * @param {Uint8Array} spkiBuf - A buffer containing the SPKI (Subject Public Key Info) data.
- * @return {Promise<{pubkey: string, fingerprint: string}>} A promise that resolves to an object with the following properties:
+ * @return {Promise<{raw: Uint8Array, pubkey: string, fingerprint: string}>} A promise that resolves to an object with the following properties:
+ *    - `raw`: RSA public key in OpenSSH format.
  *    - `pubkey`: The Base64-encoded RSA public key in OpenSSH format.
  *    - `fingerprint`: The fingerprint of the RSA public key.
  */
@@ -356,6 +268,7 @@ async function makeRsaOpenSSHPubKey(spkiBuf) {
 	]);
 
 	return {
+		raw: blob,
 		pubkey: toBase64(blob),
 		fingerprint: await makeFingerprint(blob)
 	};
@@ -365,7 +278,8 @@ async function makeRsaOpenSSHPubKey(spkiBuf) {
  * Generates an OpenSSH ECDSA public key from the provided SPKI (Subject Public Key Information) buffer.
  *
  * @param {Uint8Array} spkiBuf The buffer containing the SPKI data to parse the ECDSA public key from.
- * @return {Promise<{pubkey: string, fingerprint: string}>} A promise that resolves to an object with the following properties:
+ * @return {Promise<{raw: Uint8Array, pubkey: string, fingerprint: string}>} A promise that resolves to an object with the following properties:
+ *    - `raw`: ECDSA public key in OpenSSH format.
  *    - `pubkey`: The Base64-encoded ECDSA public key in OpenSSH format.
  *    - `fingerprint`: The fingerprint of the ECDSA public key.
  */
@@ -373,15 +287,61 @@ async function makeEcdsaOpenSSHPubKey(spkiBuf) {
 	const parser = new Parser(spkiBuf);
 	const ecdsa = parser.ecdsaSpki();
 	const blob = rfc4253.concatBytes([
-		rfc4253.writeString(`ecdsa-sha2-${ecdsa.curveName}`),   //string  ex. "ecdsa-sha2-nistp256"
+		rfc4253.writeString(`ecdsa-sha2-${ecdsa.curveName}`), //string  ex. "ecdsa-sha2-nistp256"
 		rfc4253.writeString(ecdsa.curveName), // string "nistp256"
 		rfc4253.writeStringBytes(ecdsa.Q),    // string Q (0x04 || X || Y)
 	]);
 
 	return {
+		raw: blob,
 		pubkey: toBase64(blob),
 		fingerprint: await makeFingerprint(blob)
 	};
+}
+
+/**
+ * Generates an RSA private key blob in the appropriate format.
+ *
+ * This method exports the provided private key to JWK format, extracts the components
+ * required for the blob (d, p, q, and qi), and concatenates them into a byte array
+ * according to the RFC 4253 specification.
+ *
+ * @param {CryptoKey} privateKey - The RSA private key to be converted into a private key blob.
+ * @return {Promise<Uint8Array>} A promise that resolves to the RSA private key blob represented as a byte array.
+ */
+async function makeRsaPrivateBlob(privateKey) {
+	const jwk = await crypto.subtle.exportKey("jwk", privateKey);
+
+	const d  = fromBase64(jwk.d);
+	const p  = fromBase64(jwk.p);
+	const q  = fromBase64(jwk.q);
+	const qi = fromBase64(jwk.qi); // qinv (q⁻¹ mod p)
+
+	return rfc4253.concatBytes([
+		rfc4253.writeMpint(d),
+		rfc4253.writeMpint(p),
+		rfc4253.writeMpint(q),
+		rfc4253.writeMpint(qi),
+	]);
+}
+
+/**
+ * Formats a given string by wrapping it to the specified width.
+ * Breaks the string into lines not exceeding the provided width, appending a newline character
+ * at the end of each line, except for the last one. Trims any trailing whitespace characters
+ * from the resulting string.
+ *
+ * @param {string} str - The input string to be wrapped.
+ * @param {number} [width=64] - The maximum width of a line before wrapping. Defaults to 64 if not provided.
+ * @returns {string} The string formatted with line breaks.
+ */
+function stringWrap(str, width = 64) {
+	return str
+		.replace(
+			new RegExp(`(.{1,${width}})`, "g"),
+			(m, g1) => (g1) ? `${g1}\n` : ""
+		)
+		.trimEnd();
 }
 
 /**
@@ -404,7 +364,12 @@ const fromBase64 = (b64) => {
 		return null;
 	}
 
-	const decoded = atob(b64.replace(/\-/g, '+').replace(/_/g, '/'));
+	let s = b64.replace(/\-/g, '+').replace(/_/g, '/');
+	while(s.length % 4){
+		s += "=";
+	}
+
+	const decoded = atob(s);
 	const buffer = new Uint8Array(decoded.length);
 	for(let i = 0; i < b64.length; i++){
 		buffer[i] = decoded.charCodeAt(i);
@@ -427,6 +392,180 @@ const toPEM = (buffer, label) => {
 }
 
 /**
+ * A set of utility functions for handling data formats and operations
+ * specified in RFC 4253, focusing on SSH Binary Packet Protocol.
+ */
+const rfc4253 = {
+	/**
+	 * Encodes an array of bytes into a Uint8Array, prefixed with its length as a 32-bit unsigned integer.
+	 *
+	 * @param {Uint8Array} array - The input array of bytes to encode.
+	 * @returns {Uint8Array} A new Uint8Array containing the 32-bit unsigned length followed by the input array's data.
+	 */
+	writer: (array) => {
+		const out = new Uint8Array(4 + array.length);
+		const view = new DataView(out.buffer);
+		view.setUint32(0, array.length);
+		out.set(array, 4);
+
+		return out;
+	},
+
+	/**
+	 * Encodes a given string into a Uint8Array format with a prepended 4-byte unsigned integer
+	 * representing the length of the string in bytes.
+	 *
+	 * @param {string} str - The string to be encoded.
+	 * @returns {Uint8Array} A byte array containing the string length as a 4-byte unsigned integer
+	 *                       followed by the UTF-8 encoded representation of the string.
+	 */
+	writeString: (str) => {
+		const enc = new TextEncoder();
+		const s = enc.encode(str);
+
+		return rfc4253.writer(s);
+	},
+
+	/**
+	 * Converts the given input into a Uint8Array, calculates its length, and returns a new Uint8Array
+	 * where the first 4 bytes represent the length of the input array and the remaining bytes
+	 * contain the input data.
+	 *
+	 * @param {ArrayBuffer | Uint8Array} bytes - The input that will be converted to a Uint8Array.
+	 *                                           If it is not already a Uint8Array, it will be wrapped in one.
+	 * @returns {Uint8Array} A new Uint8Array where the first 4 bytes encode the length of the input data,
+	 *                       followed by the data itself.
+	 */
+	writeStringBytes: (bytes) => {
+		const b = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes);
+
+		return rfc4253.writer(b);
+	},
+
+	/**
+	 * Converts a byte array into an mpint (multiple precision integer) format.
+	 * If the most significant bit of the first byte is set to 1, prepends a 0x00 byte to preserve the sign.
+	 * Prepends the length of the byte array as a 4-byte unsigned integer in big-endian format to the output.
+	 *
+	 * @param {Uint8Array} bytes - The input byte array to be converted into mpint format.
+	 * @returns {Uint8Array} A new Uint8Array in mpint format, containing the length prefix and the adjusted byte array.
+	 */
+	writeMpint: (bytes) => {
+		// mpintは先頭bitが1なら 0x00 を前置して符号を守る
+		let b = bytes;
+		if(b.length > 0 && (b[0] & 0x80)){
+			const tmp = new Uint8Array(b.length + 1);
+			tmp.set(b, 1);
+			b = tmp;
+		}
+
+		return rfc4253.writeStringBytes(b);
+	},
+
+	/**
+	 * Concatenates multiple Uint8Array instances into a single Uint8Array.
+	 *
+	 * @param {Uint8Array[]} arrays - An array of Uint8Array instances to be concatenated.
+	 * @returns {Uint8Array} A new Uint8Array containing the concatenated contents of the input arrays.
+	 */
+	concatBytes: (arrays) => {
+		const len = arrays.reduce((sum, a) => sum + a.length, 0);
+		const out = new Uint8Array(len);
+		let offset = 0;
+		for(const a of arrays){
+			out.set(a, offset);
+			offset += a.length;
+		}
+
+		return out;
+	}
+};
+
+/**
+ * An object containing utility functions for handling PuTTY Private Key (PPK) operations.
+ *
+ * @property {Function} computeMac - Computes a Message Authentication Code (MAC) to ensure integrity of provided inputs.
+ * @property {Function} makeRsaPpkV3 - Generates an RSA PuTTY Private Key file in the format of PuTTY-User-Key-File-3 based on the given key pair and parameters.
+ */
+const forPPK = {
+	/**
+	 * Computes a MAC (Message Authentication Code) for verifying integrity of provided inputs.
+	 *
+	 * @param {string} algorithmName - The algorithm name to be used in the computation.
+	 * @param {string} encryption - The encryption type, indicating the security mechanism used.
+	 * @param {string} comment - An optional comment string to include in the computation.
+	 * @param {Uint8Array} pubBlob - The public key blob used in the computation.
+	 * @param {Uint8Array} privBlob - The private key blob used in the computation.
+	 * @param {Uint8Array|null} [enc=null] - Optional encryption key used for HMAC. If not provided, a default key is used.
+	 * @returns {Promise<string>} Resolves to a hexadecimal string representation of the computed MAC.
+	 */
+	computeMac: async (algorithmName, encryption, comment, pubBlob, privBlob, enc = null) => {
+		const macInput = rfc4253.concatBytes([
+			rfc4253.writeString(algorithmName),
+			rfc4253.writeString(encryption),
+			rfc4253.writeString(comment),
+			rfc4253.writeStringBytes(pubBlob),
+			rfc4253.writeStringBytes(privBlob)
+		]);
+
+		// Encryption:none の場合は`enc = null`
+		// PPKv3のMACは「鍵の秘密性」ではなく「改ざん検出」用途なので、PuTTY 側も HMAC の key="" と key="\x00" を区別していない。
+		// ただし空の配列だとWebCryptoの規約違反なので0番目に\x00を入れて違反を回避。
+		const keyData = (enc instanceof Uint8Array && enc.length > 0) ? enc : new Uint8Array([0]);
+		const key = await crypto.subtle.importKey("raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+		const sig = await crypto.subtle.sign("HMAC", key, macInput);
+		const mac = new Uint8Array(sig);
+
+		return [...mac].map((b) => b.toString(16).padStart(2, "0")).join("");
+	},
+
+	/**
+	 * Generates an RSA PPK (PuTTY Private Key) file in the format of PuTTY-User-Key-File-3.
+	 *
+	 * @param {Object} keyPair - An object containing the RSA key pair. It must include the private key.
+	 * @param {string} comment - A textual comment to include in the PPK file.
+	 * @param {Uint8Array} pubBlob - RSA public key.
+	 * @param {string} [encryption="none"] - Specifies the encryption type for the private key. Defaults to "none".
+	 * @returns {Promise<string>} A string representing the complete contents of the PPK file.
+	 */
+	makeRsaPpkV3: async (keyPair, comment, pubBlob, encryption = "none") => {
+		const algorithmName = "ssh-rsa";
+
+		const pubB64 = toBase64(pubBlob);
+
+		const privBlob = await makeRsaPrivateBlob(keyPair.privateKey);
+		const privB64 = toBase64(privBlob);
+
+		const pubLines = stringWrap(pubB64);
+		const privLines = stringWrap(privB64);
+
+		const pubLineCount = pubLines.split("\n").length;
+		const prvLineCount = privLines.split("\n").length;
+
+		const macHex = await forPPK.computeMac(
+			algorithmName,
+			encryption,
+			comment,
+			pubBlob,
+			privBlob,
+			null
+		);
+
+		const ret =
+			`PuTTY-User-Key-File-3: ${algorithmName}\n` +
+			`Encryption: ${encryption}\n` +
+			`Comment:${comment}\n` +
+			`Public-Lines: ${pubLineCount}\n` +
+			`${pubLines}\n` +
+			`Private-Lines: ${prvLineCount}\n` +
+			`${privLines}\n` +
+			`Private-MAC: ${macHex}\n`;
+
+		return ret;
+	}
+};
+
+/**
  * Generates a cryptographic key pair based on the specified algorithm and options, and provides both the DER-encoded keys and OpenSSH-compatible keys and fingerprint information.
  *
  * @param {string} name - The name of the algorithm to use for key generation. Supported values are 'RSA' and 'ECDSA'.
@@ -440,6 +579,7 @@ const toPEM = (buffer, label) => {
  * - `public`: The DER-encoded public key in SPKI format.
  * - `private`: The DER-encoded private key in PKCS8 format.
  * - `openssh`: The OpenSSH-compatible public key string.
+ * - `ppk` {string | undefined}: PuTTY private key in PPK format (only for RSA).
  * - `fingerprint`: The OpenSSH-compatible fingerprint as a string.
  * @throws {Error} If an invalid algorithm name is provided.
  */
@@ -506,15 +646,17 @@ async function generateKey(name, opt, onProgress) {
 	// 秘密DER
 	const pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
 
-	// OpenSSH公開鍵・フィンガープリント
+	// 公開鍵・フィンガープリント・PuTTY-Private-Key
 	let opensshPubkey;
 	let opensshFingerprint;
+	let ppk;
 	switch(name){
 		case "RSA":
 			const rsaOpenssh = await makeRsaOpenSSHPubKey(spki);
 
 			opensshPubkey = `${opt.prefix} ${rsaOpenssh.pubkey}${comment}`;
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${rsaOpenssh.fingerprint}`;
+			ppk = await forPPK.makeRsaPpkV3(keyPair, comment, rsaOpenssh.raw, "none");
 			break;
 
 		case "ECDSA":
@@ -529,6 +671,7 @@ async function generateKey(name, opt, onProgress) {
 		public: spki,
 		private: pkcs8,
 		openssh: opensshPubkey,
+		ppk: ppk,
 		fingerprint: opensshFingerprint
 	};
 }
