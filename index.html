@@ -7,6 +7,8 @@
     <title>Secured KeyPair Generator</title>
 
     <!-- JS(CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/argon2-browser@1.18.0/dist/argon2-bundled.min.js" integrity="sha256-d8ZLlGuvGlEW3FkfS5ll1jaxtFX3Xt0tSlh8t14BaHs=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js" integrity="sha384-mukV+7j0qBy/lE+ujV57q4g2TNuk05BkKqq02xNChSjuCwaNOoQVi5uaJFiXik3A" crossorigin="anonymous"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous" defer></script>
     <script src="https://code.jquery.com/ui/1.14.1/jquery-ui.min.js" integrity="sha256-AlTido85uXPlSyyaZNsjJXeCs07eSv3r43kyCVc8ChI=" crossorigin="anonymous" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.min.js" integrity="sha256-ew8UiV1pJH/YjpOEBInP1HxVvT/SfrCmwSoUzF9JIgc=" crossorigin="anonymous" defer></script>
@@ -51,9 +53,20 @@
                 <label class="ms-2"><input type="radio" name="nist" value="521" class="me-1">P-521</label>
             </div>
 
-            <div class="mt-2">
+            <div class="mt-3">
                 <label>Comment:</label>
                 <input type="text" name="comment" class="form-control" autocomplete="off">
+            </div>
+
+            <div class="mt-3">
+                <label><input type="checkbox" name="use-passphrase" id="use-passphrase" class="form-checkbox">パスフレーズを設定する</label>
+
+                <div id="passphrase-field" style="display: none;">
+                    <label>Passphrase:</label>
+                    <input type="password" name="passphrase" class="form-control" autocomplete="off">
+                    <label>Passphrase (Confirm):</label>
+                    <input type="password" name="passphrase_c" class="form-control" autocomplete="off">
+                </div>
             </div>
         </fieldset>
 
@@ -80,8 +93,8 @@
             </div>
         </fieldset>
 
-        <fieldset id="generate">
-            <div class="d-flex mt-3">
+        <fieldset id="generate" class="mt-3">
+            <div class="d-flex">
                 <button name="generate-button" id="generate-button" class="btn btn-sm btn-outline-primary">Generate Keypair</button>
                 <button name="gen-reset-button" id="gen-reset-button" class="btn btn-sm btn-outline-secondary ms-2">Reset</button>
             </div>
@@ -93,7 +106,7 @@
             <div id="error-alert" class="alert alert-danger mt-3" role="alert" style="display: none;">aaa</div>
         </fieldset>
 
-        <fieldset id="result" class="mt-3">
+        <fieldset id="result" class="mt-5">
             <div class="card">
                 <div data-bs-toggle="collapse" data-bs-target="#pubkey-field" aria-expanded="false" aria-controls="pubkey-field" role="button" class="card-header d-flex">
                     <h3>Public Key🔑</h3>

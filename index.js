@@ -28,6 +28,7 @@ function download(id, content, filename) {
 $(() => {
 	const $rsaLengthRadio = $('#rsa-length-radio');
 	const $ecdsaNistRadio = $('#ecdsa-nist-radio');
+	const $passphraseCheck = $('input[name="use-passphrase"]');
 	const $guri2Check = $('input[name="guri2view"]');
 	const $generateButton = $('button[name="generate-button"]');
 	const $resetButton = $('button[name="gen-reset-button"]');
@@ -66,6 +67,23 @@ $(() => {
 
 	algoRadioToggle();
 	$('select[name="algo"]').change(algoRadioToggle);
+
+	const passphraseCheckToggle = (checked) => {
+		if(!runnable){
+			return;
+		}
+
+		if(checked){
+			$('#passphrase-field').show(200);
+		} else{
+			$('#passphrase-field').hide(200);
+		}
+	};
+
+	passphraseCheckToggle($passphraseCheck.prop('checked'));
+	$passphraseCheck.change(function(){
+		passphraseCheckToggle($(this).prop('checked'));
+	});
 
 	const guri2zoneToggle = (checked) => {
 		if(!runnable){
@@ -143,7 +161,22 @@ $(() => {
 				break;
 		}
 
-		try {
+		if($passphraseCheck.prop('checked')){
+			const passphrase = $('input[name="passphrase"]').val();
+			const passphrase_c = $('input[name="passphrase_c"]').val();
+
+			if(passphrase === ''){
+				$errorAlert.text("Passphrase is required").show();
+				return;
+			} else if(passphrase !== passphrase_c){
+				$errorAlert.text("Passphrase does not match").show();
+				return;
+			}
+
+			opt.passphrase = passphrase;
+		}
+
+		// try {
 			const result = await generateKey(al, opt, progress);
 
 			// 公開PEM
@@ -166,8 +199,8 @@ $(() => {
 			} else{
 				$('#dlPrivPpk').prop('disabled', true);
 			}
-		} catch(e) {
-			$errorAlert.text(e.message).show();
-		}
+		// } catch(e) {
+		// 	$errorAlert.text(e.message).show();
+		// }
 	});
 })
