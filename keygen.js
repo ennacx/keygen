@@ -554,7 +554,7 @@ const forPPK = {
 		const ret =
 			`PuTTY-User-Key-File-3: ${algorithmName}\n` +
 			`Encryption: ${encryption}\n` +
-			`Comment:${comment}\n` +
+			`Comment: ${comment}\n` +
 			`Public-Lines: ${pubLineCount}\n` +
 			`${pubLines}\n` +
 			`Private-Lines: ${prvLineCount}\n` +
@@ -610,7 +610,7 @@ async function generateKey(name, opt, onProgress) {
 		throw Error(`Invalid algorithm: ${name}`);
 	}
 
-	const comment = (opt.comment && opt.comment !== '') ? ` ${opt.comment}` : "";
+	const comment = (opt.comment && opt.comment !== '') ? opt.comment : "";
 
 	let keyPair;
 	if(keygenReduceNum >= 0){
@@ -654,7 +654,7 @@ async function generateKey(name, opt, onProgress) {
 		case "RSA":
 			const rsaOpenssh = await makeRsaOpenSSHPubKey(spki);
 
-			opensshPubkey = `${opt.prefix} ${rsaOpenssh.pubkey}${comment}`;
+			opensshPubkey = `${opt.prefix} ${rsaOpenssh.pubkey}` + ((comment !== undefined && comment !== '') ? ` ${comment}` : "");
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${rsaOpenssh.fingerprint}`;
 			ppk = await forPPK.makeRsaPpkV3(keyPair, comment, rsaOpenssh.raw, "none");
 			break;
@@ -662,7 +662,7 @@ async function generateKey(name, opt, onProgress) {
 		case "ECDSA":
 			const ecdsaOpenssh = await makeEcdsaOpenSSHPubKey(spki);
 
-			opensshPubkey = `${opt.prefix} ${ecdsaOpenssh.pubkey}${comment}`;
+			opensshPubkey = `${opt.prefix} ${ecdsaOpenssh.pubkey}` + ((comment !== undefined && comment !== '') ? ` ${comment}` : "");
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${ecdsaOpenssh.fingerprint}`;
 			break;
 	}
