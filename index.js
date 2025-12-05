@@ -180,9 +180,9 @@ $(() => {
 			const result = await generateKey(al, opt, progress);
 
 			// 公開PEM
-			const publicPEM  = toPEM(result.public, PUBKEY_LABEL);
+			const publicPEM  = helper.toPEM(result.public, PUBKEY_LABEL);
 			// 秘密PEM
-			const privatePEM = toPEM(result.private, PRIVKEY_LABEL);
+			const privatePEM = helper.toPEM(result.private, PRIVKEY_LABEL);
 
 			// 表示用
 			$('#pub-fp').text(result.fingerprint);
