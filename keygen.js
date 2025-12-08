@@ -15,6 +15,7 @@ const OID = {
 
 const PUBKEY_LABEL = "PUBLIC KEY";
 const PRIVKEY_LABEL = "PRIVATE KEY";
+const OPENSSH_ADD_LABEL = "OPENSSH";
 const ENCRYPTED_ADD_LABEL = "ENCRYPTED";
 
 let keygenReduceNum = -1;
@@ -279,11 +280,11 @@ async function makeFingerprint(blob) {
 async function makeRsaOpenSSHPubKey(spkiBuf) {
 	const parser = new Parser(spkiBuf);
 	const rsa = parser.rsaSpki();
-	const blob = rfc4253.concatBytes([
+	const blob = rfc4253.concatBytes(
 		rfc4253.writeString(rsa.name),
 		rfc4253.writeMpint(rsa.e),
 		rfc4253.writeMpint(rsa.n)
-	]);
+	);
 
 	return {
 		raw: blob,
@@ -304,11 +305,11 @@ async function makeRsaOpenSSHPubKey(spkiBuf) {
 async function makeEcdsaOpenSSHPubKey(spkiBuf) {
 	const parser = new Parser(spkiBuf);
 	const ecdsa = parser.ecdsaSpki();
-	const blob = rfc4253.concatBytes([
+	const blob = rfc4253.concatBytes(
 		rfc4253.writeString(`ecdsa-sha2-${ecdsa.curveName}`), //string  ex. "ecdsa-sha2-nistp256"
 		rfc4253.writeString(ecdsa.curveName), // string "nistp256"
 		rfc4253.writeStringBytes(ecdsa.Q),    // string Q (0x04 || X || Y)
-	]);
+	);
 
 	return {
 		raw: blob,
@@ -336,12 +337,12 @@ async function makeRsaPrivateBlob(privateKey) {
 	const q  = helper.fromBase64(jwk.q);
 	const qi = helper.fromBase64(jwk.qi); // qinv (q⁻¹ mod p)
 
-	return rfc4253.concatBytes([
+	return rfc4253.concatBytes(
 		rfc4253.writeMpint(d),
 		rfc4253.writeMpint(p),
 		rfc4253.writeMpint(q),
 		rfc4253.writeMpint(qi),
-	]);
+	);
 }
 
 /**
@@ -382,6 +383,16 @@ const helper = {
 	 * @returns {string} A concatenated hexadecimal string representing the numeric values.
 	 */
 	hexPad: (arr) => [...arr].map((b) => b.toString(16).padStart(2, "0")).join(""),
+
+
+	/**
+	 * Encodes a given string into its corresponding UTF-8 byte representation.
+	 *
+	 * @function
+	 * @param {string} s - The input string to be encoded.
+	 * @returns {Uint8Array} The UTF-8 encoded byte array of the input string.
+	 */
+	toUtf8: (s) => new TextEncoder().encode(s),
 
 	/**
 	 * Formats a given string by wrapping it to the specified width.
@@ -439,7 +450,32 @@ const helper = {
 	toPEM: (buffer, label) => {
 		const base64 = helper.stringWrap(helper.toBase64(buffer), 64);
 
-		return `-----BEGIN ${label}-----\n${base64}\n-----END ${label}-----`;
+		return [
+			`-----BEGIN ${label}-----`,
+			base64
+			,`-----END ${label}-----`
+		].join("\n");
+	},
+
+	/**
+	 * Converts an OpenSSH-key-v1 buffer to a PEM formatted string.
+	 *
+	 * Encodes the given buffer into a base64 string and breaks it into 70-character
+	 * lines. Wraps the base64 encoded string with proper PEM headers and footers.
+	 *
+	 * @param {Buffer} opesshBuf - The OpenSSH formatted buffer to be converted.
+	 * @returns {string} A PEM formatted string containing the base64 encoded data
+	 * wrapped with appropriate headers and footers.
+	 */
+	toOpenSSHPem: (opesshBuf) => {
+		const base64 = helper.stringWrap(helper.toBase64(opesshBuf), 70);
+
+		return [
+			`-----BEGIN ${OPENSSH_ADD_LABEL} ${PRIVKEY_LABEL}-----`,
+			base64,
+			`-----END ${OPENSSH_ADD_LABEL} ${PRIVKEY_LABEL}-----`,
+			""
+		].join("\n");
 	},
 
 	/**
@@ -459,9 +495,11 @@ const helper = {
 		const { der } = await encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt);
 		const base64 = helper.stringWrap(helper.toBase64(der), 64);
 
-		return `-----BEGIN ${ENCRYPTED_ADD_LABEL} ${PRIVKEY_LABEL}-----\n` +
-			`${base64}\n` +
-			`-----END ${ENCRYPTED_ADD_LABEL} ${PRIVKEY_LABEL}-----`;
+		return [
+			`-----BEGIN ${ENCRYPTED_ADD_LABEL} ${PRIVKEY_LABEL}-----`,
+			`${base64}`,
+			`-----END ${ENCRYPTED_ADD_LABEL} ${PRIVKEY_LABEL}-----`
+		].join("\n");
 	}
 };
 
@@ -665,6 +703,21 @@ const rfc4253 = {
 	},
 
 	/**
+	 * Encodes a 32-bit unsigned integer into a 4-byte Uint8Array
+	 * in big-endian byte order.
+	 *
+	 * @param {number} value - The 32-bit unsigned integer to encode.
+	 * @returns {Uint8Array} A Uint8Array containing the big-endian representation of the input value.
+	 */
+	writeUint32: (value) => {
+		const buf = new Uint8Array(4);
+		const view = new DataView(buf.buffer);
+		view.setUint32(0, value >>> 0, false); // big endian
+
+		return buf;
+	},
+
+	/**
 	 * Encodes a given string into a Uint8Array format with a prepended 4-byte unsigned integer
 	 * representing the length of the string in bytes.
 	 *
@@ -672,12 +725,7 @@ const rfc4253 = {
 	 * @returns {Uint8Array} A byte array containing the string length as a 4-byte unsigned integer
 	 *                       followed by the UTF-8 encoded representation of the string.
 	 */
-	writeString: (str) => {
-		const enc = new TextEncoder();
-		const s = enc.encode(str);
-
-		return rfc4253.writer(s);
-	},
+	writeString: (str) => rfc4253.writer(helper.toUtf8(str)),
 
 	/**
 	 * Converts the given input into a Uint8Array, calculates its length, and returns a new Uint8Array
@@ -718,14 +766,15 @@ const rfc4253 = {
 	/**
 	 * Concatenates multiple Uint8Array instances into a single Uint8Array.
 	 *
-	 * @param {Uint8Array[]} arrays - An array of Uint8Array instances to be concatenated.
-	 * @returns {Uint8Array} A new Uint8Array containing the concatenated contents of the input arrays.
+	 * @param {...Uint8Array} arrays - The arrays to concatenate.
+	 * @returns {Uint8Array} A new Uint8Array that contains the concatenated bytes of all input arrays.
 	 */
-	concatBytes: (arrays) => {
-		const len = arrays.reduce((sum, a) => sum + a.length, 0);
+	concatBytes: (...arrays) => {
+		const arr = [...arrays];
+		const len = arr.reduce((sum, a) => sum + a.length, 0);
 		const out = new Uint8Array(len);
 		let offset = 0;
-		for(const a of arrays){
+		for(const a of arr){
 			out.set(a, offset);
 			offset += a.length;
 		}
@@ -760,8 +809,7 @@ const forPPK = {
 			throw new Error("argon2-browser is required for deriveKeys");
 		}
 
-		const enc = new TextEncoder();
-		const passBytes = enc.encode(passphrase);
+		const passBytes = helper.toUtf8(passphrase);
 
 		// PuTTYっぽいデフォルト値 (サンプルでもよく使用される値)
 		const memory      = 8192; // KiB
@@ -809,13 +857,13 @@ const forPPK = {
 	 * @returns {Promise<string>} Resolves to a hexadecimal string representation of the computed MAC.
 	 */
 	computeMac: async (algorithmName, encryption, comment, pubBlob, privBlob, enc = null) => {
-		const macInput = rfc4253.concatBytes([
+		const macInput = rfc4253.concatBytes(
 			rfc4253.writeString(algorithmName),
 			rfc4253.writeString(encryption),
 			rfc4253.writeString(comment),
 			rfc4253.writeStringBytes(pubBlob),
 			rfc4253.writeStringBytes(privBlob)
-		]);
+		);
 
 		// Encryption:none の場合は`enc = null`
 		// PPKv3のMACは「鍵の秘密性」ではなく「改ざん検出」用途なので、PuTTY 側も HMAC の key="" と key="\x00" を区別していない。
@@ -868,16 +916,18 @@ const forPPK = {
 
 			// AES-CBCで保存
 			// FIXME: AES-CBCをWebCryptoでやると勝手にPKCS#7パディングを付けやがって永遠にMACと整合性がとれなくなるため、Crypto-JSを使ってパディング無しで生成させる。
-			privOut = aesCbcEncryptNoPadding(ar2.cipher, ar2.iv, privPadded);
+			// 使わない: privOut = aesCbcEncryptRaw(ar2.cipher, ar2.iv, privPadded);
+			privOut = aesCbcEncryptRawNoPadding(ar2.cipher, ar2.iv, privPadded);
 			macKey  = ar2.mk;
 
 			// Key-Derivationヘッダの作成
-			kdLines =
-				`Key-Derivation: Argon2id\n` +
-				`Argon2-Memory: ${ar2.mem}\n` +
-				`Argon2-Passes: ${ar2.pass}\n` +
-				`Argon2-Parallelism: ${ar2.parallel}\n` +
-				`Argon2-Salt: ${helper.hexPad(ar2.salt)}\n`;
+			kdLines = [
+				`Key-Derivation: Argon2id`,
+				`Argon2-Memory: ${ar2.mem}`,
+				`Argon2-Passes: ${ar2.pass}`,
+				`Argon2-Parallelism: ${ar2.parallel}`,
+				`Argon2-Salt: ${helper.hexPad(ar2.salt)}`
+			].join("\n");
 		}
 		// その他
 		else{
@@ -900,18 +950,17 @@ const forPPK = {
 			macKey
 		);
 
-		const ret =
-			`PuTTY-User-Key-File-3: ${algorithmName}\n` +
-			`Encryption: ${encryption}\n` +
-			`Comment: ${comment}\n` +
-			`Public-Lines: ${pubLineCount}\n` +
-			`${pubLines}\n` +
-			kdLines+
-			`Private-Lines: ${prvLineCount}\n` +
-			`${privLines}\n` +
-			`Private-MAC: ${macHex}\n`;
-
-		return ret;
+		return [
+			`PuTTY-User-Key-File-3: ${algorithmName}`,
+			`Encryption: ${encryption}`,
+			`Comment: ${comment}`,
+			`Public-Lines: ${pubLineCount}`,
+			`${pubLines}`,
+			kdLines,
+			`Private-Lines: ${prvLineCount}`,
+			`${privLines}`,
+			`Private-MAC: ${macHex}`
+		].join("\n");
 	},
 
 	/**
@@ -977,7 +1026,6 @@ const forPPK = {
  */
 async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	const buffer = (pkcs8Buf instanceof Uint8Array) ? pkcs8Buf : new Uint8Array(pkcs8Buf);
-	const enc = new TextEncoder();
 
 	const iterations = opt.iterations ?? 100_000;
 	const saltSize   = opt.saltSize   ?? 16;
@@ -989,7 +1037,7 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	const iv   = crypto.getRandomValues(new Uint8Array(16));
 
 	// ---- PBKDF2でAES-256キーを導出 (PBKDF2-HMAC-SHA256)
-	const baseKey = await crypto.subtle.importKey("raw", enc.encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+	const baseKey = await crypto.subtle.importKey("raw", helper.toUtf8(passphrase), "PBKDF2", false, ["deriveKey"]);
 	const aesKey = await crypto.subtle.deriveKey(
 		{ name: "PBKDF2", salt, iterations, hash },
 		baseKey,
@@ -1075,6 +1123,133 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	};
 }
 
+function makeOpenSshPrivateBlock(keyType, publicBlob, privatePart, comment) {
+	const check = crypto.getRandomValues(new Uint32Array(1))[0];
+
+	const core = rfc4253.concatBytes(
+		rfc4253.writeUint32(check),            // uint32 checkint1
+		rfc4253.writeUint32(check),            // uint32 checkint2
+		rfc4253.writeString(keyType),          // "ssh-rsa" など
+		rfc4253.writeStringBytes(publicBlob),  // Uint8Array
+		rfc4253.writeStringBytes(privatePart), // Uint8Array (鍵種別ごとの生フィールド)
+		rfc4253.writeString(comment || "")
+	);
+
+	// パディング (OpenSSHはblockSize=8)
+	const blockSize = 8;
+	const rem = core.length % blockSize;
+	const padLen = (rem === 0) ? 0 : (blockSize - rem);
+	const out = new Uint8Array(core.length + padLen); // blockSizeで割りきれる数に拡張
+	out.set(core, 0);
+	for(let i = 0; i < padLen; i++){
+		out[core.length + i] = (i + 1) & 0xFF; // 1,2,3,... で埋める慣習
+	}
+
+	return out;
+}
+
+function buildOpenSSHKeyV1({
+   ciphername,
+   kdfname,
+   kdfoptions,
+   publicBlob,
+   encryptedBlob
+}){
+	const magic = rfc4253.concatBytes(helper.toUtf8("openssh-key-v1"), new Uint8Array([0x00]));
+
+	return rfc4253.concatBytes(
+		magic,
+		rfc4253.writeString(ciphername),        // "chacha20-poly1305@openssh.com"
+		rfc4253.writeString(kdfname),           // "bcrypt"
+		rfc4253.writeStringBytes(kdfoptions),   // string kdfoptions
+		rfc4253.writeUint32(1),                 // 鍵の個数 N=1
+		rfc4253.writeStringBytes(publicBlob),   // string publickey1
+		rfc4253.writeStringBytes(encryptedBlob) // string encrypted_privates
+	);
+}
+
+async function makeOpenSSHPrivateKeyV1(keyType, keyInfo, passphrase, comment) {
+	// 1. 公開鍵blobと秘密フィールドblobを作る
+	let pubBlob;
+	let privBlob;
+
+	if(keyType === "ssh-rsa"){
+		const rsa = await makeRsaOpenSSHPubKey(keyInfo.public); // SPKI → OpenSSH blob
+		pubBlob   = rsa.raw;
+		privBlob  = await makeRsaPrivateBlob(keyInfo.private);
+	} else if(keyType.startsWith("ecdsa-sha2-")){
+		const ecdsa = await makeEcdsaOpenSSHPubKey(keyInfo.public);
+		pubBlob     = ecdsa.raw;
+		privBlob    = await makeEcdsaPrivateBlob(keyInfo.private);
+	} else{
+		throw new Error(`Unsupported key type for OpenSSH-key-v1: ${keyType}`);
+	}
+
+	// 2. 平文の秘密鍵ブロックを作成
+	const plainBlock = makeOpenSshPrivateBlock(
+		keyType,
+		pubBlob,
+		privBlob,
+		comment || ""
+	);
+
+	// パスフレーズ無しなら暗号化せずにそのまま入れる
+	if(!passphrase){
+		const binary = buildOpenSSHKeyV1({
+			ciphername:   "none",
+			kdfname:      "none",
+			kdfoptions:   new Uint8Array(0),
+			publicBlob:   pubBlob,
+			encryptedBlob: plainBlock
+		});
+
+		return helper.toOpenSSHPem(binary);
+	}
+
+	// 3. bcrypt-pbkdf で AEADキー導出
+	const salt   = crypto.getRandomValues(new Uint8Array(16));
+	const rounds = 16;
+	const aeadKey = new Uint8Array(32); // chacha20poly1305 は 32byte鍵
+
+	const passBytes = helper.toUtf8(passphrase);
+
+	// bcrypt-pbkdf.pbkdf(pass, passlen, salt, saltlen, key, keylen, rounds)
+	window.bcryptPbkdf.pbkdf(
+		passBytes,
+		passBytes.length,
+		salt,
+		salt.length,
+		aeadKey,
+		aeadKey.length,
+		rounds
+	);
+
+	// 4. ChaCha20-Poly1305 で暗号化
+	const nonce = crypto.getRandomValues(new Uint8Array(12)); // nonceLength=12
+	const aead  = new window.chacha20poly1305(aeadKey);
+	const aad   = new Uint8Array(0);
+
+	const sealed = aead.seal(nonce, plainBlock, aad);
+	// sealed = ciphertext || tag (末尾16バイトがタグ)
+	const encryptedBlob = rfc4253.concatBytes(nonce, sealed);
+
+	// 5. kdfoptions & コンテナ
+	const kdfoptions = rfc4253.concatBytes(
+		rfc4253.writeStringBytes(salt),  // string salt
+		rfc4253.writeUint32(rounds)      // uint32 rounds
+	);
+
+	const binary = buildOpenSSHKeyV1({
+		ciphername:   "chacha20-poly1305@openssh.com",
+		kdfname:      "bcrypt",
+		kdfoptions,
+		publicBlob:   pubBlob,
+		encryptedBlob
+	});
+
+	return helper.toOpenSSHPem(binary);
+}
+
 /**
  * Adds random padding to the given data to align its length with the specified block size.
  *
@@ -1099,7 +1274,7 @@ const addRandomPadding = (plain, blockSize = 16) => {
 	}
 
 	const pad = crypto.getRandomValues(new Uint8Array(padLen));
-	return rfc4253.concatBytes([plain, pad]);
+	return rfc4253.concatBytes(plain, pad);
 };
 
 /**
@@ -1126,7 +1301,7 @@ const aesCbcEncryptRaw = async (keyBytes, ivBytes, plaintext) => {
  * @returns {Uint8Array} The encrypted ciphertext as a byte array.
  * @throws {Error} If the CryptoJS library is not available or properly initialized.
  */
-const aesCbcEncryptNoPadding = (keyBytes, ivBytes, plaintext) => {
+const aesCbcEncryptRawNoPadding = (keyBytes, ivBytes, plaintext) => {
 	if(!CryptoJS || !CryptoJS.lib.WordArray || typeof CryptoJS.lib.WordArray.create !== 'function'){
 		throw new Error("CryptoJS is required for aesCbcEncryptNoPadding");
 	}
@@ -1163,6 +1338,7 @@ const aesCbcEncryptNoPadding = (keyBytes, ivBytes, plaintext) => {
  *  - `prefix`: A prefix string for keys.
  * @param {Function} [onProgress] - An optional callback function that receives progress updates. The function is called with two arguments: the current progress and the total steps.
  * @return {Promise<Object>} A promise that resolves to an object containing the generated key information:
+ *  - `raw`: The generated raw key pair
  *  - `public`: The public key in SPKI encoded format.
  *  - `private`: The private key in PKCS#8 encoded format.
  *  - `openssh`: The public key in OpenSSH format.
@@ -1258,6 +1434,7 @@ async function generateKey(name, opt, onProgress) {
 	}
 
 	return {
+		raw: keyPair,
 		public: spki,
 		private: pkcs8,
 		openssh: opensshPubkey,

@@ -177,17 +177,28 @@ $(() => {
 			opt.passphrase = passphrase;
 		}
 
-		// try {
+		try {
 			const result = await generateKey(al, opt, progress);
 
 			// 公開PEM
 			const publicPEM  = helper.toPEM(result.public, PUBKEY_LABEL);
 			// 秘密PEM
-			const privatePEM = (opt.passphrase && opt.passphrase !== "") ?
-				await helper.toEncryptedPkcs8PEM(result.private, opt.passphrase, {
-					iterations: 100_000
-				}) :
-				helper.toPEM(result.private, PRIVKEY_LABEL);
+			let privatePEM;
+			if(opt.passphrase && opt.passphrase !== ""){
+				const encType = $('input[name="enc-type"]:checked').val();
+				switch(encType){
+					case 'pkcs8':
+						privatePEM = await helper.toEncryptedPkcs8PEM(result.private, opt.passphrase, { iterations: 100_000 });
+						break;
+					case 'sshv1':
+						privatePEM = await makeOpenSSHPrivateKeyV1(opt.prefix, { public: result.public, private: result.raw.privateKey }, opt.passphrase, opt.comment);
+						break;
+					default:
+						throw new Error(`Invalid encryption type ${encType}`);
+				}
+			} else {
+				privatePEM = helper.toPEM(result.private, PRIVKEY_LABEL);
+			}
 
 			// 表示用
 			$('#pub-fp').text(result.fingerprint);
@@ -204,8 +215,8 @@ $(() => {
 			} else{
 				$('#dlPrivPpk').prop('disabled', true);
 			}
-		// } catch(e) {
-		// 	$errorAlert.text(e.message).show();
-		// }
+		} catch(e) {
+			$errorAlert.text(e.message).show();
+		}
 	});
 })
