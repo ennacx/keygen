@@ -129,6 +129,15 @@ footer ul.copy-links li i {
   width: 0;
 }
 
+label span.mono {
+  font-size: 0.8rem;
+  background: #eee;
+  border-radius: 4px;
+  font-family: "Atkinson Hyperlegible Mono", monospace;
+  margin-left: 0.5rem;
+  padding: 2px 4px;
+}
+
 pre.result-mono {
   background: #eee;
   padding: 1rem;

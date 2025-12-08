@@ -143,6 +143,7 @@ $(() => {
 			$progress.width(`${Math.round((done / total) * 100)}%`);
 		};
 
+		// プログレスバーの初期化
 		progress(0, 1);
 
 		switch(al){
@@ -182,7 +183,11 @@ $(() => {
 			// 公開PEM
 			const publicPEM  = helper.toPEM(result.public, PUBKEY_LABEL);
 			// 秘密PEM
-			const privatePEM = helper.toPEM(result.private, PRIVKEY_LABEL);
+			const privatePEM = (opt.passphrase && opt.passphrase !== "") ?
+				await helper.toEncryptedPkcs8PEM(result.private, opt.passphrase, {
+					iterations: 100_000
+				}) :
+				helper.toPEM(result.private, PRIVKEY_LABEL);
 
 			// 表示用
 			$('#pub-fp').text(result.fingerprint);

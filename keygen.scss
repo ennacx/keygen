@@ -182,6 +182,17 @@ footer {
 	}
 }
 
+label {
+	span.mono {
+		font-size: 0.8rem;
+		background: #eee;
+		border-radius: 4px;
+		font-family: $mono_font;
+		margin-left: .5rem;
+		padding: 2px 4px;
+	}
+}
+
 pre {
 	&.result-mono {
 		background: #eee; padding: 1rem;

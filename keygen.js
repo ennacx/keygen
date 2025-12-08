@@ -1,4 +1,25 @@
 /**
+ * Object containing Object Identifier (OID) values for cryptographic algorithms.
+ *
+ * @property {string} PBES2       The OID representing the PBES2 encryption scheme (Password-Based Encryption Scheme 2).
+ * @property {string} PBKDF2      The OID representing the PBKDF2 key derivation function (Password-Based Key Derivation Function 2).
+ * @property {string} HMAC_SHA256 The OID representing the HMAC with SHA-256 hashing algorithm.
+ * @property {string} AES256_CBC  The OID representing AES encryption in CBC (Cipher Block Chaining) mode with a 256-bit key size.
+ */
+const OID = {
+	PBES2:       "1.2.840.113549.1.5.13",
+	PBKDF2:      "1.2.840.113549.1.5.12",
+	HMAC_SHA256: "1.2.840.113549.2.9",
+	AES256_CBC:  "2.16.840.1.101.3.4.1.42"
+};
+
+const PUBKEY_LABEL = "PUBLIC KEY";
+const PRIVKEY_LABEL = "PRIVATE KEY";
+const ENCRYPTED_ADD_LABEL = "ENCRYPTED";
+
+let keygenReduceNum = -1;
+
+/**
  * Represents a parser for decoding RSA and ECDSA SubjectPublicKeyInfo structures.
  * This class provides methods to extract relevant public key components such as
  * modulus, exponent, curve name, and EC points from their respective binary formats.
@@ -233,11 +254,6 @@ class Parser {
 	}
 }
 
-const PUBKEY_LABEL = "PUBLIC KEY";
-const PRIVKEY_LABEL = "PRIVATE KEY";
-
-let keygenReduceNum = -1;
-
 /**
  * Generates a SHA-256 fingerprint of the given data and converts it to a base64-encoded string without trailing equals signs.
  *
@@ -424,12 +440,213 @@ const helper = {
 		const base64 = helper.stringWrap(helper.toBase64(buffer), 64);
 
 		return `-----BEGIN ${label}-----\n${base64}\n-----END ${label}-----`;
+	},
+
+	/**
+	 * Converts a PKCS#8 private key buffer into an encrypted PKCS#8 PEM format string.
+	 *
+	 * @async
+	 * @function
+	 * @param {Buffer} pkcs8Buf - The PKCS#8 private key buffer to be encrypted.
+	 * @param {string} passphrase - The passphrase used for encrypting the private key.
+	 * @param {Object} [opt={}] - Options for the encryption process.
+	 * @param {string} [opt.cipher='aes256'] - The encryption algorithm to use (default is 'aes256').
+	 * @param {number} [opt.iterations=2048] - The number of iterations for the encryption (default is 2048).
+	 * @returns {Promise<string>} A promise that resolves to the encrypted PKCS#8 PEM formatted string.
+	 * @throws {Error} If the encryption process fails or if the inputs are invalid.
+	 */
+	toEncryptedPkcs8PEM: async (pkcs8Buf, passphrase, opt = {}) => {
+		const { der } = await encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt);
+		const base64 = helper.stringWrap(helper.toBase64(der), 64);
+
+		return `-----BEGIN ${ENCRYPTED_ADD_LABEL} ${PRIVKEY_LABEL}-----\n` +
+			`${base64}\n` +
+			`-----END ${ENCRYPTED_ADD_LABEL} ${PRIVKEY_LABEL}-----`;
+	}
+};
+
+/**
+ * A utility object for encoding data into DER (Distinguished Encoding Rules) format,
+ * commonly used in PKCS8 cryptographic data structures. Contains functions for
+ * creating various DER-encoded elements like sequences, integers, octet strings,
+ * and object identifiers. Primarily utilized for constructing and managing cryptographic
+ * data formats.
+ *
+ * @property {function(...Uint8Array): Uint8Array} derConcat Concatenates multiple Uint8Array instances into a single array.
+ * @property {function(number): Uint8Array} derLen Encodes a given length into the DER length format.
+ * @property {function(Uint8Array|Array|ArrayBuffer): Uint8Array} derSequence Constructs a DER-encoded sequence.
+ * @property {function(Uint8Array|Array): Uint8Array} derOctetString Creates a DER-encoded Octet String from the input.
+ * @property {function(number): Uint8Array} derInt Produces a DER-encoded representation of an integer.
+ * @property {function(): Uint8Array} derNull Creates a DER Null object encoding.
+ * @property {function(string): Uint8Array} derOid Encodes an Object Identifier (OID) string into DER format.
+ */
+const pkcs8 = {
+	/**
+	 * Concatenates multiple Uint8Array arrays into a single Uint8Array.
+	 *
+	 * This function takes any number of Uint8Array instances as arguments,
+	 * calculates the total length, and creates a new Uint8Array to hold
+	 * the concatenated result. It iteratively copies each array into the
+	 * created output array.
+	 *
+	 * @param {...Uint8Array} arrays - One or more Uint8Array instances to concatenate.
+	 * @returns {Uint8Array} A new Uint8Array containing the concatenation of all input arrays.
+	 */
+	derConcat: (...arrays) => {
+		const len = arrays.reduce((n, a) => n + a.length, 0);
+		const out = new Uint8Array(len);
+		let off = 0;
+		for(const a of arrays){
+			out.set(a, off);
+			off += a.length;
+		}
+
+		return out;
+	},
+
+	/**
+	 * Generates DER-encoded length encoding for a given length.
+	 *
+	 * If the length is less than 128, it uses the short form encoding.
+	 * For lengths equal to or greater than 128, it employs the long form encoding.
+	 *
+	 * @param {number} len The length value to encode.
+	 * @returns {Uint8Array} A Uint8Array containing the DER-encoded length.
+	 * @throws {TypeError} Throws if the input length is not a number.
+	 */
+	derLen: (len) => {
+		if(len < 0x80){
+			return new Uint8Array([len]);
+		}
+
+		// long form
+		const bytes = [];
+		let v = len;
+		while(v > 0){
+			bytes.unshift(v & 0xFF);
+			v >>= 8;
+		}
+
+		return new Uint8Array([0x80 | bytes.length, ...bytes]);
+	},
+
+	/**
+	 * Constructs a DER (Distinguished Encoding Rules) encoded sequence.
+	 *
+	 * This function takes a content input, ensures it is of type Uint8Array,
+	 * and constructs a DER encoded sequence by concatenating a prefix byte (0x30),
+	 * the DER encoded length of the content, and the content itself.
+	 *
+	 * @param {Uint8Array|Array|ArrayBuffer} content - The content to be included in the DER sequence. If not a Uint8Array, it will be converted.
+	 * @returns {Uint8Array} - The resulting DER encoded sequence.
+	 */
+	derSequence: (content) => {
+		const c = (content instanceof Uint8Array) ? content : new Uint8Array(content);
+		return pkcs8.derConcat(new Uint8Array([0x30]), pkcs8.derLen(c.length), c);
+	},
+
+	/**
+	 * Encodes the given input bytes as a DER-encoded Octet String.
+	 *
+	 * The function takes an array of bytes, either as a regular array or a `Uint8Array`,
+	 * and constructs a DER-encoded Octet String. This involves adding the appropriate
+	 * identifier byte (0x04), a length indicator, and the byte content.
+	 *
+	 * @param {Uint8Array | Array} bytes - The input bytes to encode as a DER Octet String. If the input is not a `Uint8Array`, it will be converted into one.
+	 * @returns {Uint8Array} A new `Uint8Array` containing the DER-encoded Octet String representation of the input.
+	 */
+	derOctetString: (bytes) => {
+		const b = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes);
+		return pkcs8.derConcat(new Uint8Array([0x04]), pkcs8.derLen(b.length), b);
+	},
+
+	/**
+	 * Generates a DER-encoded integer representation of the given number. (`iterationCount / keyLength`用。32bitくらい想定)
+	 *
+	 * The function converts a number to its big-endian byte array representation.
+	 * Handles edge cases such as zero and ensures that the DER encoding rules
+	 * for signed integers are followed (e.g., avoids leading bits being misinterpreted
+	 * as a sign bit by adding a leading 0x00 byte if necessary).
+	 *
+	 * @param {number} num - The unsigned integer to be converted into DER format.
+	 * @returns {Uint8Array} The DER-encoded representation of the integer.
+	 */
+	derInt: (num) => {
+		if(num === 0){
+			return new Uint8Array([0x02, 0x01, 0x00]);
+		}
+
+		const bytes = [];
+		let v = num >>> 0;
+		while(v > 0){
+			bytes.unshift(v & 0xff);
+			v >>>= 8;
+		}
+
+		// 先頭bitが1なら符号ビット回避のため0x00を追加
+		if(bytes[0] & 0x80){
+			bytes.unshift(0x00);
+		}
+
+		return pkcs8.derConcat(new Uint8Array([0x02]), pkcs8.derLen(bytes.length), new Uint8Array(bytes));
+	},
+
+	/**
+	 * Creates and returns a new Uint8Array representing a DER Null object.
+	 * The DER Null object is encoded as a two-byte sequence with an object identifier of 0x05 and a zero-length content of 0x00.
+	 *
+	 * @returns {Uint8Array} A Uint8Array containing the DER Null encoding.
+	 */
+	derNull: () => new Uint8Array([0x05, 0x00]),
+
+	/**
+	 * Encodes an Object Identifier (OID e.g., 1.2.840.113549.1.5.13) string into its DER (Distinguished Encoding Rules) representation.
+	 *
+	 * This function converts an OID string of the format "x.y.z..." into its binary DER-encoded form.
+	 * The first two components (x and y) are encoded as `40 * x + y`, and subsequent components are encoded
+	 * using a base-128 representation where each byte has its highest bit set, except for the last byte.
+	 *
+	 * @param {string} oidStr - The OID string to be encoded, in the form "x.y.z...".
+	 * @throws {Error} If the input string has fewer than two components or contains invalid numeric values.
+	 * @returns {Uint8Array} A Uint8Array containing the DER-encoded representation of the OID.
+	 */
+	derOid: (oidStr) => {
+		const parts = oidStr.split('.').map((x) => parseInt(x, 10));
+		if(parts.length < 2){
+			throw new Error("Invalid OID");
+		}
+
+		const first = 40 * parts[0] + parts[1];
+		const body = [first];
+
+		for(let i = 2; i < parts.length; i++){
+			let v = parts[i];
+			const stack = [];
+			do {
+				stack.push(v & 0x7F);
+				v >>= 7;
+			} while(v > 0);
+
+			for(let j = stack.length - 1; j >= 0; j--){
+				let b = stack[j];
+				if(j !== 0){
+					b |= 0x80;
+				}
+
+				body.push(b);
+			}
+		}
+
+		const b = new Uint8Array(body);
+		return pkcs8.derConcat(new Uint8Array([0x06]), pkcs8.derLen(b.length), b);
 	}
 };
 
 /**
  * A set of utility functions for handling data formats and operations
  * specified in RFC 4253, focusing on SSH Binary Packet Protocol.
+ *
+ * @see https://datatracker.ietf.org/doc/html/rfc4253
  */
 const rfc4253 = {
 	/**
@@ -743,6 +960,122 @@ const forPPK = {
 };
 
 /**
+ * Encrypts a PKCS#8 private key buffer using PBES2 with PBKDF2 and AES-256-CBC.
+ *
+ * @param {ArrayBuffer|Uint8Array} pkcs8Buf The PKCS#8 private key buffer to be encrypted.
+ * @param {string} passphrase The passphrase to derive the encryption key.
+ * @param {Object} [opt={}] Optional parameters for encryption.
+ * @param {number} [opt.iterations=100000] The number of PBKDF2 iterations.
+ * @param {number} [opt.saltSize=16] The size of the salt for key derivation.
+ * @return {Promise<Object>} An object containing the DER-encoded encrypted key and encryption parameters:
+ *     - `der` (Uint8Array): The DER-encoded encrypted private key.
+ *     - `params` (Object): The parameters used for encryption, including:
+ *         - `salt` (Uint8Array): The random salt.
+ *         - `iterations` (number): The PBKDF2 iteration count.
+ *         - `keyLength` (number): The AES key length (default is 32 bytes for AES-256).
+ *         - `iv` (Uint8Array): The initialization vector (IV) used for AES-CBC encryption.
+ */
+async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
+	const buffer = (pkcs8Buf instanceof Uint8Array) ? pkcs8Buf : new Uint8Array(pkcs8Buf);
+	const enc = new TextEncoder();
+
+	const iterations = opt.iterations ?? 100_000;
+	const saltSize   = opt.saltSize   ?? 16;
+	const keyLength  = 32;   // AES-256
+	const hash       = "SHA-256";
+
+	// Random-salt & IV
+	const salt = crypto.getRandomValues(new Uint8Array(saltSize));
+	const iv   = crypto.getRandomValues(new Uint8Array(16));
+
+	// ---- PBKDF2でAES-256キーを導出 (PBKDF2-HMAC-SHA256)
+	const baseKey = await crypto.subtle.importKey("raw", enc.encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+	const aesKey = await crypto.subtle.deriveKey(
+		{ name: "PBKDF2", salt, iterations, hash },
+		baseKey,
+		{ name: "AES-CBC", length: 256 },
+		false,
+		["encrypt"]
+	);
+
+	// ---- AES-256-CBC + PKCS#7 padding (WebCrypto Standard)
+	const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-CBC", iv }, aesKey, buffer));
+
+	// ====== ここから ASN.1 組み立て ======
+
+	// PRF AlgorithmIdentifier (hmacWithSHA256, NULL)
+	const prfAlgId = pkcs8.derSequence(
+		pkcs8.derConcat(
+			pkcs8.derOid(OID.HMAC_SHA256),
+			pkcs8.derNull()
+		)
+	);
+
+	// PBKDF2-params ::= SEQUENCE {
+	//   salt OCTET STRING,
+	//   iterationCount INTEGER,
+	//   keyLength INTEGER OPTIONAL,
+	//   prf AlgorithmIdentifier DEFAULT ...
+	// }
+	const pbkdf2Params = pkcs8.derSequence(
+		pkcs8.derConcat(
+			pkcs8.derOctetString(salt),
+			pkcs8.derInt(iterations),
+			pkcs8.derInt(keyLength),
+			prfAlgId
+		)
+	);
+
+	// keyDerivationFunc AlgorithmIdentifier (PBKDF2)
+	const kdfAlgId = pkcs8.derSequence(
+		pkcs8.derConcat(
+			pkcs8.derOid(OID.PBKDF2),
+			pbkdf2Params
+		)
+	);
+
+	// encryptionScheme AlgorithmIdentifier (AES-256-CBC, params = IV)
+	const encSchemeAlgId = pkcs8.derSequence(
+		pkcs8.derConcat(
+			pkcs8.derOid(OID.AES256_CBC),
+			pkcs8.derOctetString(iv)
+		)
+	);
+
+	// PBES2-params ::= SEQUENCE { keyDerivationFunc, encryptionScheme }
+	const pbes2Params = pkcs8.derSequence(
+		pkcs8.derConcat(
+			kdfAlgId,
+			encSchemeAlgId
+		)
+	);
+
+	// encryptionAlgorithm AlgorithmIdentifier (PBES2 + params)
+	const encryptionAlgorithm = pkcs8.derSequence(
+		pkcs8.derConcat(
+			pkcs8.derOid(OID.PBES2),
+			pbes2Params
+		)
+	);
+
+	// encryptedData OCTET STRING
+	const encryptedData = pkcs8.derOctetString(ciphertext);
+
+	// EncryptedPrivateKeyInfo ::= SEQUENCE { encryptionAlgorithm, encryptedData }
+	const encryptedPrivateKeyInfo = pkcs8.derSequence(
+		pkcs8.derConcat(
+			encryptionAlgorithm,
+			encryptedData
+		)
+	);
+
+	return {
+		der: encryptedPrivateKeyInfo,
+		params: { salt, iterations, keyLength, iv }
+	};
+}
+
+/**
  * Adds random padding to the given data to align its length with the specified block size.
  *
  * This function ensures that the returned data is a multiple of the specified block size
@@ -817,7 +1150,6 @@ const aesCbcEncryptNoPadding = (keyBytes, ivBytes, plaintext) => {
 
 	return out;
 }
-
 
 /**
  * Generates a cryptographic key pair based on the specified algorithm and options.
