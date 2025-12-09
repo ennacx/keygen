@@ -1,19 +1,30 @@
 /**
- * Object containing Object Identifiers (OIDs) used in cryptographic operations.
- * These identifiers are defined in various cryptographic standards and specifications.
+ * Object Identifier (OID) mapping for cryptographic algorithms and key types.
  *
- * @property {string} PBES2       OID for Password-Based Encryption Scheme (PBES2) as defined in PKCS#5.
- * @property {string} PBKDF2      OID for Password-Based Key Derivation Function 2 (PBKDF2) as defined in PKCS#5.
- * @property {string} HMAC_SHA256 OID for HMAC with SHA-256 hashing algorithm.
- * @property {string} AES256_CBC  OID for AES with 256-bit key in CBC (Cipher Block Chaining) mode.
- * @property {string} ECDSA_SPKI  OID for Elliptic Curve Digital Signature Algorithm (ECDSA) Subject Public Key Information.
+ * This object provides a set of Object Identifiers (OIDs) representing
+ * various standard cryptographic algorithms and related parameters.
+ * These OIDs are used to identify specific cryptographic primitives
+ * in protocols and data formats.
+ *
+ * Properties:
+ * - `PBES2`: OID for Password-Based Encryption Scheme 2 (PBES2).
+ * - `PBKDF2`: OID for Password-Based Key Derivation Function 2 (PBKDF2).
+ * - `HMAC_SHA256`: OID for Hash-based Message Authentication Code (HMAC) using SHA-256.
+ * - `AES256_CBC`: OID for AES encryption using 256-bit key in Cipher Block Chaining (CBC) mode.
+ * - `ECDSA_SPKI`: OID for Elliptic Curve Digital Signature Algorithm (ECDSA) in Subject Public Key Info (SPKI) format.
+ * - `NIST_P256`: OID for the NIST P-256 elliptic curve (also known as secp256r1).
+ * - `NIST_P384`: OID for the NIST P-384 elliptic curve (also known as secp384r1).
+ * - `NIST_P521`: OID for the NIST P-521 elliptic curve (also known as secp521r1).
  */
 const OID = {
 	PBES2:       "1.2.840.113549.1.5.13",
 	PBKDF2:      "1.2.840.113549.1.5.12",
 	HMAC_SHA256: "1.2.840.113549.2.9",
 	AES256_CBC:  "2.16.840.1.101.3.4.1.42",
-	ECDSA_SPKI:  "1.2.840.10045.2.1"
+	ECDSA_SPKI:  "1.2.840.10045.2.1",
+	NIST_P256:   "1.2.840.10045.3.1.7",
+	NIST_P384:   "1.3.132.0.34",
+	NIST_P521:   "1.3.132.0.35"
 };
 
 const PUBKEY_LABEL = "PUBLIC KEY";
@@ -154,13 +165,13 @@ class Parser {
 			// OID → OpenSSHのcurve名にマップ
 			let curveName;
 			switch(curveOid){
-				case "1.2.840.10045.3.1.7":   // secp256r1
+				case OID.NIST_P256: // secp256r1
 					curveName = "nistp256";
 					break;
-				case "1.3.132.0.34":          // secp384r1
+				case OID.NIST_P384: // secp384r1
 					curveName = "nistp384";
 					break;
-				case "1.3.132.0.35":          // secp521r1
+				case OID.NIST_P521: // secp521r1
 					curveName = "nistp521";
 					break;
 				default:
