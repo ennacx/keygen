@@ -231,7 +231,7 @@ $(() => {
 			const result = await generateKey(al, opt, progress);
 
 			// 公開PEM
-			const publicPEM  = helper.toPEM(result.public, PUBKEY_LABEL);
+			const publicPEM  = helper.toPEM(result.public, PEM_LABEL.publicKey);
 			// 秘密PEM
 			let privatePEM;
 			if(opt.passphrase && opt.passphrase !== ""){
@@ -247,7 +247,7 @@ $(() => {
 						throw new Error(`Invalid encryption type ${encType}`);
 				}
 			} else {
-				privatePEM = helper.toPEM(result.private, PRIVKEY_LABEL);
+				privatePEM = helper.toPEM(result.private, PEM_LABEL.privateKey);
 			}
 
 			// 表示用

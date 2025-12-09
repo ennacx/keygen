@@ -27,10 +27,22 @@ const OID = {
 	NIST_P521:   "1.3.132.0.35"
 };
 
-const PUBKEY_LABEL = "PUBLIC KEY";
-const PRIVKEY_LABEL = "PRIVATE KEY";
-const OPENSSH_ADD_LABEL = "OPENSSH";
-const ENCRYPTED_ADD_LABEL = "ENCRYPTED";
+/**
+ * An object representing PEM (Privacy Enhanced Mail) labels used for identifying
+ * different types of keys and formats in PEM encoded data.
+ *
+ * Properties:
+ * - `publicKey`: The label for a public key in PEM format.
+ * - `privateKey`: The label for a private key in PEM format.
+ * - `opensshAdd`: The label indicating an OpenSSH formatted key or data.
+ * - `encryptedAdd`: The label indicating that the data is encrypted.
+ */
+const PEM_LABEL = {
+	publicKey:    "PUBLIC KEY",
+	privateKey:   "PRIVATE KEY",
+	opensshAdd:   "OPENSSH",
+	encryptedAdd: "ENCRYPTED"
+};
 
 let keygenReduceNum = -1;
 
@@ -490,9 +502,9 @@ const helper = {
 		const base64 = helper.stringWrap(helper.toBase64(opesshBuf), 70);
 
 		return [
-			`-----BEGIN ${OPENSSH_ADD_LABEL} ${PRIVKEY_LABEL}-----`,
+			`-----BEGIN ${PEM_LABEL.opensshAdd} ${PEM_LABEL.privateKey}-----`,
 			base64,
-			`-----END ${OPENSSH_ADD_LABEL} ${PRIVKEY_LABEL}-----`,
+			`-----END ${PEM_LABEL.opensshAdd} ${PEM_LABEL.privateKey}-----`,
 			""
 		].join("\n");
 	},
@@ -515,9 +527,9 @@ const helper = {
 		const base64 = helper.stringWrap(helper.toBase64(der), 64);
 
 		return [
-			`-----BEGIN ${ENCRYPTED_ADD_LABEL} ${PRIVKEY_LABEL}-----`,
+			`-----BEGIN ${PEM_LABEL.encryptedAdd} ${PEM_LABEL.privateKey}-----`,
 			`${base64}`,
-			`-----END ${ENCRYPTED_ADD_LABEL} ${PRIVKEY_LABEL}-----`
+			`-----END ${PEM_LABEL.encryptedAdd} ${PEM_LABEL.privateKey}-----`
 		].join("\n");
 	}
 };
