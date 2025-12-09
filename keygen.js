@@ -1,16 +1,19 @@
 /**
- * Object containing Object Identifier (OID) values for cryptographic algorithms.
+ * Object containing Object Identifiers (OIDs) used in cryptographic operations.
+ * These identifiers are defined in various cryptographic standards and specifications.
  *
- * @property {string} PBES2       The OID representing the PBES2 encryption scheme (Password-Based Encryption Scheme 2).
- * @property {string} PBKDF2      The OID representing the PBKDF2 key derivation function (Password-Based Key Derivation Function 2).
- * @property {string} HMAC_SHA256 The OID representing the HMAC with SHA-256 hashing algorithm.
- * @property {string} AES256_CBC  The OID representing AES encryption in CBC (Cipher Block Chaining) mode with a 256-bit key size.
+ * @property {string} PBES2       OID for Password-Based Encryption Scheme (PBES2) as defined in PKCS#5.
+ * @property {string} PBKDF2      OID for Password-Based Key Derivation Function 2 (PBKDF2) as defined in PKCS#5.
+ * @property {string} HMAC_SHA256 OID for HMAC with SHA-256 hashing algorithm.
+ * @property {string} AES256_CBC  OID for AES with 256-bit key in CBC (Cipher Block Chaining) mode.
+ * @property {string} ECDSA_SPKI  OID for Elliptic Curve Digital Signature Algorithm (ECDSA) Subject Public Key Information.
  */
 const OID = {
 	PBES2:       "1.2.840.113549.1.5.13",
 	PBKDF2:      "1.2.840.113549.1.5.12",
 	HMAC_SHA256: "1.2.840.113549.2.9",
-	AES256_CBC:  "2.16.840.1.101.3.4.1.42"
+	AES256_CBC:  "2.16.840.1.101.3.4.1.42",
+	ECDSA_SPKI:  "1.2.840.10045.2.1"
 };
 
 const PUBKEY_LABEL = "PUBLIC KEY";
@@ -127,7 +130,7 @@ class Parser {
 
 			// id-ecPublicKeyのはず
 			const algOid = this.#readOidAsString();
-			if(algOid !== "1.2.840.10045.2.1"){
+			if(algOid !== OID.ECDSA_SPKI){
 				throw new Error(`Not an EC public key (unexpected algorithm OID: ${algOid})`);
 			}
 
@@ -258,6 +261,7 @@ class Parser {
 /**
  * Generates a SHA-256 fingerprint of the given data and converts it to a base64-encoded string without trailing equals signs.
  *
+ * @async
  * @param {ArrayBuffer} blob - The input data to generate the fingerprint for.
  * @return {Promise<string>} A promise that resolves to the base64-encoded SHA-256 fingerprint.
  */
@@ -271,6 +275,7 @@ async function makeFingerprint(blob) {
 /**
  * Generates an OpenSSH public key in RSA format from a given SPKI buffer.
  *
+ * @async
  * @param {Uint8Array} spkiBuf - A buffer containing the SPKI (Subject Public Key Info) data.
  * @return {Promise<{raw: Uint8Array, pubkey: string, fingerprint: string}>} A promise that resolves to an object with the following properties:
  *  - `raw`: RSA public key in OpenSSH format.
@@ -296,6 +301,7 @@ async function makeRsaOpenSSHPubKey(spkiBuf) {
 /**
  * Generates an OpenSSH ECDSA public key from the provided SPKI (Subject Public Key Information) buffer.
  *
+ * @async
  * @param {Uint8Array} spkiBuf The buffer containing the SPKI data to parse the ECDSA public key from.
  * @return {Promise<{raw: Uint8Array, pubkey: string, fingerprint: string}>} A promise that resolves to an object with the following properties:
  *  - `raw`: ECDSA public key in OpenSSH format.
@@ -325,6 +331,7 @@ async function makeEcdsaOpenSSHPubKey(spkiBuf) {
  * required for the blob (d, p, q, and qi), and concatenates them into a byte array
  * according to the RFC 4253 specification.
  *
+ * @async
  * @param {CryptoKey} privateKey - The RSA private key to be converted into a private key blob.
  * @return {Promise<Uint8Array>} A promise that resolves to the RSA private key blob represented as a byte array.
  */
@@ -348,6 +355,7 @@ async function makeRsaPrivateBlob(privateKey) {
 /**
  * Generates an ECDSA private key blob in the appropriate format.
  *
+ * @async
  * @param {CryptoKey} privateKey - The ECDSA private key to be exported and processed.
  * @return {Promise<Uint8Array>} A promise that resolves to the ECDSA private key blob represented as a byte array.
  */
@@ -793,6 +801,7 @@ const forPPK = {
 	/**
 	 * Derives cryptographic keys from a given passphrase using the Argon2id key derivation function.
 	 *
+	 * @async
 	 * @param {string} passphrase - The passphrase to be used for key derivation.
 	 * @returns {Promise<Object>} An object containing the derived keys and used parameters:
 	 *  - `salt` {Uint8Array}: The randomly generated salt used in the derivation.
@@ -848,6 +857,7 @@ const forPPK = {
 	/**
 	 * Computes a MAC (Message Authentication Code) for verifying integrity of provided inputs.
 	 *
+	 * @async
 	 * @param {string} algorithmName - The algorithm name to be used in the computation.
 	 * @param {string} encryption - The encryption type, indicating the security mechanism used.
 	 * @param {string} comment - An optional comment string to include in the computation.
@@ -879,6 +889,7 @@ const forPPK = {
 	/**
 	 * Generates an RSA PPK (PuTTY Private Key) file in the format of PuTTY-User-Key-File-3.
 	 *
+	 * @async
 	 * @param {string} algorithmName - The name of the encryption algorithm to be used (e.g., ssh-rsa).
 	 * @param {CryptoKeyPair} keyPair - An object containing the RSA key pair. It must include the private key.
 	 * @param {string} comment - A textual comment to include in the PPK file.
@@ -911,23 +922,10 @@ const forPPK = {
 		}
 		// パスフレーズ指定あり (AES-256-CBC)
 		else if(encryption === "aes256-cbc"){
-			// Argon2で鍵導出
-			const ar2 = await forPPK.deriveKeys(passphrase);
-
-			// AES-CBCで保存
-			// FIXME: AES-CBCをWebCryptoでやると勝手にPKCS#7パディングを付けやがって永遠にMACと整合性がとれなくなるため、Crypto-JSを使ってパディング無しで生成させる。
-			// 使わない: privOut = aesCbcEncryptRaw(ar2.cipher, ar2.iv, privPadded);
-			privOut = aesCbcEncryptRawNoPadding(ar2.cipher, ar2.iv, privPadded);
-			macKey  = ar2.mk;
-
-			// Key-Derivationヘッダの作成
-			kdLines = [
-				`Key-Derivation: Argon2id`,
-				`Argon2-Memory: ${ar2.mem}`,
-				`Argon2-Passes: ${ar2.pass}`,
-				`Argon2-Parallelism: ${ar2.parallel}`,
-				`Argon2-Salt: ${helper.hexPad(ar2.salt)}`
-			].join("\n");
+			const d = await argon2KeyDerivation(passphrase, privPadded);
+			privOut = d.privOut;
+			macKey = d.macKey;
+			kdLines = d.kdLines;
 		}
 		// その他
 		else{
@@ -966,51 +964,84 @@ const forPPK = {
 	/**
 	 * Generates an ECDSA PPK (PuTTY Private Key) file in the format of PuTTY-User-Key-File-3.
 	 *
+	 * @async
 	 * @param {string} algorithmName - The name of the encryption algorithm to be used (e.g., ecdsa-sha2-nistp2256).
 	 * @param {CryptoKeyPair} keyPair - An object containing the ECDSA key pair. It must include the private key.
 	 * @param {string} comment - A textual comment to include in the PPK file.
 	 * @param {Uint8Array} pubBlob - ECDSA public key.
 	 * @param {string} [encryption="none"] - Specifies the encryption type for the private key. Defaults to "none".
+	 * @param {string} [passphrase=""] - Specifies the passphrase. Defaults to "".
 	 * @returns {Promise<string>} A string representing the complete contents of the PPK file.
 	 */
-	makeEcdsaPpkV3: async (algorithmName, keyPair, comment, pubBlob, encryption = "none") => {
+	makeEcdsaPpkV3: async (algorithmName, keyPair, comment, pubBlob, encryption = "none", passphrase = "") => {
 		const pubB64 = helper.toBase64(pubBlob);
 
-		const privBlob = await makeEcdsaPrivateBlob(keyPair.privateKey);
-		const privB64 = helper.toBase64(privBlob);
+		// 平文の秘密鍵blob
+		const privPlain = await makeEcdsaPrivateBlob(keyPair.privateKey);
+		// ランダムパディング込みの秘密鍵
+		const privPadded = addRandomPadding(privPlain, 16);
 
+		// Base64用に暗号化or平文
+		let privOut;
+		// Key-Derivation系ヘッダ用
+		let kdLines = "";
+		// computeMacに渡すキー
+		let macKey;
+
+		// パスフレーズ指定無し
+		if(encryption === "none" || !passphrase){
+			// 平文のまま保存
+			privOut = privPadded;
+			// computeMac側で0x00鍵にフォールバックするために`null`を指定
+			macKey = null;
+		}
+		// パスフレーズ指定あり (AES-256-CBC)
+		else if(encryption === "aes256-cbc"){
+			const d = await argon2KeyDerivation(passphrase, privPadded);
+
+			privOut = d.privOut
+			macKey  = d.macKey;
+			kdLines = d.kdLines;
+		}
+		// その他
+		else{
+			throw new Error(`Unsupported encryption: ${encryption}`);
+		}
+
+		const privB64 = helper.toBase64(privOut);
 		const pubLines = helper.stringWrap(pubB64);
 		const privLines = helper.stringWrap(privB64);
-
 		const pubLineCount = pubLines.split("\n").length;
 		const prvLineCount = privLines.split("\n").length;
 
+		// MACは常に「平文＋パディング側」を入力にする！
 		const macHex = await forPPK.computeMac(
 			algorithmName,
 			encryption,
 			comment,
 			pubBlob,
-			privBlob,
-			null
+			privPadded,
+			macKey
 		);
 
-		const ret =
-			`PuTTY-User-Key-File-3: ${algorithmName}\n` +
-			`Encryption: ${encryption}\n` +
-			`Comment: ${comment}\n` +
-			`Public-Lines: ${pubLineCount}\n` +
-			`${pubLines}\n` +
-			`Private-Lines: ${prvLineCount}\n` +
-			`${privLines}\n` +
-			`Private-MAC: ${macHex}\n`;
-
-		return ret;
+		return [
+			`PuTTY-User-Key-File-3: ${algorithmName}`,
+			`Encryption: ${encryption}`,
+			`Comment: ${comment}`,
+			`Public-Lines: ${pubLineCount}`,
+			`${pubLines}`,
+			kdLines,
+			`Private-Lines: ${prvLineCount}`,
+			`${privLines}`,
+			`Private-MAC: ${macHex}`
+		].join("\n");
 	}
 };
 
 /**
  * Encrypts a PKCS#8 private key buffer using PBES2 with PBKDF2 and AES-256-CBC.
  *
+ * @async
  * @param {ArrayBuffer|Uint8Array} pkcs8Buf The PKCS#8 private key buffer to be encrypted.
  * @param {string} passphrase The passphrase to derive the encryption key.
  * @param {Object} [opt={}] Optional parameters for encryption.
@@ -1123,6 +1154,15 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	};
 }
 
+/**
+ * Generates an OpenSSH private key block in Uint8Array format.
+ *
+ * @param {string} keyType - The type of the key (e.g., "ssh-rsa").
+ * @param {Uint8Array} publicBlob - The public portion of the key in binary format.
+ * @param {Uint8Array} privatePart - The private portion of the key in binary format, specific to the key type.
+ * @param {string} [comment] - An optional comment to include in the key block.
+ * @return {Uint8Array} A Uint8Array representing the OpenSSH private key block, padded to a multiple of the block size.
+ */
 function makeOpenSshPrivateBlock(keyType, publicBlob, privatePart, comment) {
 	const check = crypto.getRandomValues(new Uint32Array(1))[0];
 
@@ -1148,14 +1188,22 @@ function makeOpenSshPrivateBlock(keyType, publicBlob, privatePart, comment) {
 	return out;
 }
 
-function buildOpenSSHKeyV1({
-   ciphername,
-   kdfname,
-   kdfoptions,
-   publicBlob,
-   encryptedBlob
-}){
-	const magic = rfc4253.concatBytes(helper.toUtf8("openssh-key-v1"), new Uint8Array([0x00]));
+/**
+ * Builds an OpenSSH key in version 1 format by combining specified components into a structured binary representation.
+ *
+ * @param {Object} params - The input parameters for creating the OpenSSH key.
+ * @param {string} params.ciphername - The cipher name used for encryption, e.g., "chacha20-poly1305@openssh.com".
+ * @param {string} params.kdfname - The key derivation function name, e.g., "bcrypt".
+ * @param {Uint8Array} params.kdfoptions - The key derivation function options as a byte array.
+ * @param {Uint8Array} params.publicBlob - The public key data as a byte array.
+ * @param {Uint8Array} params.encryptedBlob - The encrypted private key data as a byte array.
+ * @return {Uint8Array} The combined byte array representing the OpenSSH key in version 1 format.
+ */
+function buildOpenSSHKeyV1({ ciphername, kdfname, kdfoptions, publicBlob, encryptedBlob }){
+	const magic = rfc4253.concatBytes(
+		helper.toUtf8("openssh-key-v1"),
+		new Uint8Array([0x00])
+	);
 
 	return rfc4253.concatBytes(
 		magic,
@@ -1168,6 +1216,19 @@ function buildOpenSSHKeyV1({
 	);
 }
 
+/**
+ * Generates an OpenSSH private key in the v1 format.
+ *
+ * @async
+ * @param {string} keyType - The type of key to generate, such as "ssh-rsa" or "ecdsa-sha2-<curve-name>".
+ * @param {Object} keyInfo - The key information containing the public and private key components.
+ * @param {string} [keyInfo.public] - The public key component.
+ * @param {string} [keyInfo.private] - The private key component.
+ * @param {string} [passphrase] - An optional passphrase to encrypt the private key. If not provided, the key will be unencrypted.
+ * @param {string} [comment] - An optional comment to include in the private key.
+ * @return {Promise<string>} A Promise that resolves to the OpenSSH private key in PEM (Base64-encoded) format.
+ * @throws {Error} If an unsupported key type is provided.
+ */
 async function makeOpenSSHPrivateKeyV1(keyType, keyInfo, passphrase, comment) {
 	// 1. 公開鍵blobと秘密フィールドblobを作る
 	let pubBlob;
@@ -1196,10 +1257,10 @@ async function makeOpenSSHPrivateKeyV1(keyType, keyInfo, passphrase, comment) {
 	// パスフレーズ無しなら暗号化せずにそのまま入れる
 	if(!passphrase){
 		const binary = buildOpenSSHKeyV1({
-			ciphername:   "none",
-			kdfname:      "none",
-			kdfoptions:   new Uint8Array(0),
-			publicBlob:   pubBlob,
+			ciphername:    "none",
+			kdfname:       "none",
+			kdfoptions:    new Uint8Array(0),
+			publicBlob:    pubBlob,
 			encryptedBlob: plainBlock
 		});
 
@@ -1280,6 +1341,7 @@ const addRandomPadding = (plain, blockSize = 16) => {
 /**
  * Encrypts the given plaintext using AES-CBC encryption with the provided key and initialization vector (IV).
  *
+ * @async
  * @param {Uint8Array} keyBytes - The encryption key as a sequence of bytes.
  * @param {Uint8Array} ivBytes - The initialization vector as a sequence of bytes.
  * @param {Uint8Array} plaintext - The plaintext data to be encrypted as a sequence of bytes.
@@ -1327,8 +1389,49 @@ const aesCbcEncryptRawNoPadding = (keyBytes, ivBytes, plaintext) => {
 }
 
 /**
+ * Performs key derivation using the Argon2id algorithm and encrypts the provided private key using AES-CBC without PKCS#7 padding.
+ *
+ * @async
+ * @function argon2KeyDerivation
+ * @param {string} passphrase - The passphrase used for deriving the encryption keys.
+ * @param {Uint8Array} paddedPrivkey - The padded private key to be encrypted after key derivation.
+ * @returns {Promise<Object>} Returns a promise that resolves to an object containing the encrypted private key (`privOut`),
+ *                            the MAC key (`macKey`), and the generated key derivation metadata (`kdLines`).
+ *
+ * @throws {Error} Throws an error if the key derivation or encryption process fails.
+ *
+ * @description
+ * This function derives a set of encryption keys and MAC keys from the provided passphrase using Argon2id. The provided padded
+ * private key is then encrypted using AES-CBC with the derived cipher key and initialization vector. Due to padding conflicts
+ * introduced by WebCrypto, this function uses a custom implementation of AES-CBC encryption without padding. Metadata
+ * describing the Argon2id configuration is also generated and returned.
+ */
+const argon2KeyDerivation = async (passphrase, paddedPrivkey) => {
+	// Argon2で鍵導出
+	const ar2 = await forPPK.deriveKeys(passphrase);
+
+	// AES-CBCで保存
+	// FIXME: AES-CBCをWebCryptoでやると勝手にPKCS#7パディングを付けやがって永遠にMACと整合性がとれなくなるため、Crypto-JSを使ってパディング無しで生成させる。
+	// 使わない: const privOut = aesCbcEncryptRaw(ar2.cipher, ar2.iv, paddedPrivkey);
+	const privOut = aesCbcEncryptRawNoPadding(ar2.cipher, ar2.iv, paddedPrivkey);
+	const macKey  = ar2.mk;
+
+	// Key-Derivationヘッダの作成
+	const kdLines = [
+		`Key-Derivation: Argon2id`,
+		`Argon2-Memory: ${ar2.mem}`,
+		`Argon2-Passes: ${ar2.pass}`,
+		`Argon2-Parallelism: ${ar2.parallel}`,
+		`Argon2-Salt: ${helper.hexPad(ar2.salt)}`
+	].join("\n");
+
+	return { privOut, macKey, kdLines };
+};
+
+/**
  * Generates a cryptographic key pair based on the specified algorithm and options.
  *
+ * @async
  * @param {string} name - The name of the cryptographic algorithm to use, such as 'RSA' or 'ECDSA'.
  * @param {Object} opt - An object containing options for key generation. This may include properties such as:
  *  - `len`: The key size for RSA keys.
@@ -1429,7 +1532,7 @@ async function generateKey(name, opt, onProgress) {
 
 			opensshPubkey = `${opt.prefix} ${ecdsaOpenssh.pubkey}` + ((comment !== undefined && comment !== '') ? ` ${comment}` : "");
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${ecdsaOpenssh.fingerprint}`;
-			ppk = await forPPK.makeEcdsaPpkV3(opt.prefix, keyPair, comment, ecdsaOpenssh.raw, "none");
+			ppk = await forPPK.makeEcdsaPpkV3(opt.prefix, keyPair, comment, ecdsaOpenssh.raw, encryption, passphrase);
 			break;
 	}
 
