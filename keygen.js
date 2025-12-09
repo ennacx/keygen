@@ -625,7 +625,7 @@ const pkcs8 = {
 		const bytes = [];
 		let v = num >>> 0;
 		while(v > 0){
-			bytes.unshift(v & 0xff);
+			bytes.unshift(v & 0xFF);
 			v >>>= 8;
 		}
 
@@ -634,7 +634,11 @@ const pkcs8 = {
 			bytes.unshift(0x00);
 		}
 
-		return pkcs8.derConcat(new Uint8Array([0x02]), pkcs8.derLen(bytes.length), new Uint8Array(bytes));
+		return pkcs8.derConcat(
+			new Uint8Array([0x02]),
+			pkcs8.derLen(bytes.length),
+			new Uint8Array(bytes)
+		);
 	},
 
 	/**

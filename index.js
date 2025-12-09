@@ -85,6 +85,9 @@ $(() => {
 		passphraseCheckToggle($(this).prop('checked'));
 	});
 
+	/*
+	 * マウスぐりぐりゾーン表示切替
+	 */
 	const guri2zoneToggle = (checked) => {
 		if(!runnable){
 			return;
@@ -112,6 +115,53 @@ $(() => {
 	guri2zoneToggle($guri2Check.prop('checked'));
 	$guri2Check.change(function(){
 		guri2zoneToggle($(this).prop('checked'));
+	});
+
+	/*
+	 * パスフレーズ入力
+	 */
+	$(document).on('keyup, blur', 'input.passphrase-input', function(){
+		const $this = $(this);
+		const type = $this.prop('type');
+		if(type === 'password'){
+			return false;
+		}
+
+		// 半角英数字と記号以外は省く
+		$this.val($this.val().replace(/[^ -~]/g, ''));
+	});
+
+	/*
+	 * パスフレーズ表示切替
+	 */
+	$('button.show-toggle-passphrase').click(function(){
+		const $input = $(this).parent().find('input');
+		const $i = $(this).find('i');
+		const type = $input.prop('type');
+
+		const prop = {
+			password: {
+				next: "text",
+				remove: "bi-eye",
+				add: "bi-eye-slash"
+			},
+			text: {
+				next: "password",
+				remove: "bi-eye-slash",
+				add: "bi-eye"
+			}
+		};
+
+		const state = prop[type];
+		if(!state){
+			throw new Error(`State Error: ${type} is not defined.`)
+		}
+
+		$input.prop('type', state.next);
+		if($i.hasClass(state.remove)){
+			$i.removeClass(state.remove);
+		}
+		$i.addClass(state.add);
 	});
 
 	/*

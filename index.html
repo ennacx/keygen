@@ -92,10 +92,15 @@
 
                 <div id="passphrase-field" style="display: none;">
                     <label for="passphrase">Passphrase:</label>
-                    <input type="password" name="passphrase" id="passphrase" class="form-control" autocomplete="off">
+                    <div class="input-group">
+                        <input type="password" name="passphrase" id="passphrase" class="form-control passphrase-input" autocomplete="off">
+                        <button type="button" class="btn btn-outline-secondary show-toggle-passphrase"><i class="bi bi-eye"></i></button>
+                    </div>
                     <label for="passphrase_c">Passphrase (Confirm):</label>
-                    <input type="password" name="passphrase_c" id="passphrase_c" class="form-control" autocomplete="off">
-
+                    <div class="input-group">
+                        <input type="password" name="passphrase_c" id="passphrase_c" class="form-control passphrase-input" autocomplete="off">
+                        <button type="button" class="btn btn-outline-secondary show-toggle-passphrase"><i class="bi bi-eye"></i></button>
+                    </div>
                     <div>
                         <div class="form-check">
                             <input type="radio" name="enc-type" value="pkcs8" id="enc-type-pkcs8" class="form-check-input" checked>

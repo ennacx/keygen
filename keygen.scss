@@ -214,3 +214,9 @@ pre {
 	height: 100%;
 	background: #4caf50;
 }
+
+.btn{
+&.show-toggle-passphrase {
+	//background: transparent;
+}
+}
