@@ -43,6 +43,10 @@ $(() => {
 		$errorAlert.hide();
 		$errorAlert.empty();
 
+		$passphraseCheck.prop('checked', false).change();
+		$('input[name="passphrase"]').val('');
+		$('input[name="passphrase_c"]').val('');
+
 		$('#dlPub').prop('disabled', true);
 		$('#dlPubOpenSSH').prop('disabled', true);
 		$('#dlPriv').prop('disabled', true);
@@ -182,6 +186,9 @@ $(() => {
 		if(!runnable){
 			return;
 		}
+
+		$errorAlert.hide();
+		$errorAlert.empty();
 
 		const al = $('select[name="algo"] option:selected').val();
 		const opt = {

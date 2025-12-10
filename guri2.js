@@ -36,18 +36,6 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 	const btnReset = document.getElementById('gen-reset-button');
 
 	/**
-	 * Generates and returns a string indicating the processing status.
-	 *
-	 * The returned string includes the current number of collected bits
-	 * and the target number of bits required.
-	 *
-	 * @function
-	 * @returns {string} The processing status text in the format
-	 *                   "収集中: {collectedBits} / {TARGET_BITS} bits".
-	 */
-	const getProcessingStatusText = () => `収集中: ${collectedBits} / ${TARGET_BITS} bits`;
-
-	/**
 	 * Asynchronously generates and returns a 256-bit (32-byte) seed material.
 	 *
 	 * This function hashes the global entropy pool (`POOL`) using the SHA-256
@@ -120,7 +108,7 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 				});
 			}
 		} else{
-			status.textContent = getProcessingStatusText();
+			document.getElementById('collect-bits').textContent = collectedBits.toString();
 		}
 	};
 
@@ -140,12 +128,15 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 		if(!initialized){
 			initialized = true;
 
-			zone.textContent = "ここで素早く動かす / クリック / タップ";
+			zone.textContent = "Swipe, Click or Tap, in here.";
 		} else{
 			addEntropy((e.clientX ^ e.button)|0, (e.clientY ^ Date.now())|0);
 		}
 	};
 
+	/*
+	 * ぐりぐりリセット
+	 */
 	const guri2Reset = () => {
 		POOL.fill(0);
 		initialized = false;
@@ -154,8 +145,8 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 		done = false;
 
 		fill.style.width = '0%';
-		status.textContent = getProcessingStatusText();
-		zone.textContent = "クリック / タップで開始";
+		status.innerHTML = `Collecting: <span id="collect-bits">${collectedBits}</span> / ${TARGET_BITS} bits`;
+		zone.textContent = "Click or tap to get started";
 		out.textContent = "(Ungenerated)";
 
 		// 非チェック時、必ず生成ボタンはenabled状態
@@ -170,4 +161,6 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 	zone.addEventListener('touchstart', onTouch, PASSIVE_TRUE);
 
 	btnReset.addEventListener('click', guri2Reset);
+
+	guri2Reset();
 })();
