@@ -53,6 +53,7 @@ footer {
   border-top: 1px solid #eaeaea;
   background-color: #f9fafb;
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   color: #a5a5a5;
   width: 100%;
   height: 36px;
@@ -117,6 +118,7 @@ footer ul.copy-links li i {
   display: grid;
   place-items: center;
   user-select: none;
+  -webkit-user-select: none;
 }
 #content #guri2 #guri2-fill {
   width: 0;

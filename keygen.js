@@ -348,34 +348,6 @@ async function makeEcdsaOpenSSHPubKey(spkiBuf) {
 }
 
 /**
- * Generates an RSA private key blob in the appropriate format.
- *
- * This method exports the provided private key to JWK format, extracts the components
- * required for the blob (d, p, q, and qi), and concatenates them into a byte array
- * according to the RFC 4253 specification.
- *
- * @async
- * @param {CryptoKey} privateKey - The RSA private key to be converted into a private key blob.
- * @return {Promise<Uint8Array>} A promise that resolves to the RSA private key blob represented as a byte array.
- */
-async function makeRsaPrivateBlob(privateKey) {
-	const jwk = await crypto.subtle.exportKey("jwk", privateKey);
-
-	// RSAでは d, p, q, qinv
-	const d  = helper.fromBase64(jwk.d);
-	const p  = helper.fromBase64(jwk.p);
-	const q  = helper.fromBase64(jwk.q);
-	const qi = helper.fromBase64(jwk.qi); // qinv (q⁻¹ mod p)
-
-	return rfc4253.concatBytes(
-		rfc4253.writeMpint(d),
-		rfc4253.writeMpint(p),
-		rfc4253.writeMpint(q),
-		rfc4253.writeMpint(qi),
-	);
-}
-
-/**
  * Generates an ECDSA private key blob in the appropriate format.
  *
  * @async
@@ -472,64 +444,26 @@ const helper = {
 	},
 
 	/**
-	 * Converts a given buffer into a PEM formatted string.
+	 * Converts a given buffer to a PEM formatted string.
 	 *
-	 * @param {Buffer} buffer - The input buffer to be converted.
-	 * @param {string} label - The label to prepend and append to the PEM formatted string.
-	 * @returns {string} A PEM formatted string containing the base64 representation of the buffer, wrapped by the specified label.
+	 * @param {Buffer} buffer - The binary data to be encoded in PEM format.
+	 * @param {string} label - The label to include in the PEM header and footer (e.g., "PUBLIC KEY", "PRIVATE KEY").
+	 * @param {number} [wrapWidth=64] - The width of line wrapping for the base64 content; defaults to 64.
+	 * @param {string} [addLabel=""] - An optional additional prefix to the label,
+	 *                                   appended before the main label in the header and footer (e.g., "ENCRYPTED", "OPENSSH").
+	 * @returns {string} A PEM formatted string with the provided label and encoded data.
 	 */
-	toPEM: (buffer, label) => {
-		const base64 = helper.stringWrap(helper.toBase64(buffer), 64);
+	toPEM: (buffer, label, wrapWidth = 64, addLabel = "") => {
+		const base64 = helper.stringWrap(helper.toBase64(buffer), wrapWidth);
+
+		if(addLabel !== ""){
+			label = `${addLabel} ${label}`;
+		}
 
 		return [
 			`-----BEGIN ${label}-----`,
 			base64
 			,`-----END ${label}-----`
-		].join("\n");
-	},
-
-	/**
-	 * Converts an OpenSSH-key-v1 buffer to a PEM formatted string.
-	 *
-	 * Encodes the given buffer into a base64 string and breaks it into 70-character
-	 * lines. Wraps the base64 encoded string with proper PEM headers and footers.
-	 *
-	 * @param {Buffer} opesshBuf - The OpenSSH formatted buffer to be converted.
-	 * @returns {string} A PEM formatted string containing the base64 encoded data
-	 * wrapped with appropriate headers and footers.
-	 */
-	toOpenSSHPem: (opesshBuf) => {
-		const base64 = helper.stringWrap(helper.toBase64(opesshBuf), 70);
-
-		return [
-			`-----BEGIN ${PEM_LABEL.opensshAdd} ${PEM_LABEL.privateKey}-----`,
-			base64,
-			`-----END ${PEM_LABEL.opensshAdd} ${PEM_LABEL.privateKey}-----`,
-			""
-		].join("\n");
-	},
-
-	/**
-	 * Converts a PKCS#8 private key buffer into an encrypted PKCS#8 PEM format string.
-	 *
-	 * @async
-	 * @function
-	 * @param {Buffer} pkcs8Buf - The PKCS#8 private key buffer to be encrypted.
-	 * @param {string} passphrase - The passphrase used for encrypting the private key.
-	 * @param {Object} [opt={}] - Options for the encryption process.
-	 * @param {string} [opt.cipher='aes256'] - The encryption algorithm to use (default is 'aes256').
-	 * @param {number} [opt.iterations=2048] - The number of iterations for the encryption (default is 2048).
-	 * @returns {Promise<string>} A promise that resolves to the encrypted PKCS#8 PEM formatted string.
-	 * @throws {Error} If the encryption process fails or if the inputs are invalid.
-	 */
-	toEncryptedPkcs8PEM: async (pkcs8Buf, passphrase, opt = {}) => {
-		const { der } = await encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt);
-		const base64 = helper.stringWrap(helper.toBase64(der), 64);
-
-		return [
-			`-----BEGIN ${PEM_LABEL.encryptedAdd} ${PEM_LABEL.privateKey}-----`,
-			`${base64}`,
-			`-----END ${PEM_LABEL.encryptedAdd} ${PEM_LABEL.privateKey}-----`
 		].join("\n");
 	}
 };
@@ -928,8 +862,22 @@ const forPPK = {
 	makeRsaPpkV3: async (algorithmName, keyPair, comment, pubBlob, encryption = "none", passphrase = "") => {
 		const pubB64 = helper.toBase64(pubBlob);
 
+		const jwk = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
+
+		// PPKv3のRSAでは d, p, q, qinv
+		const d  = helper.fromBase64(jwk.d);
+		const p  = helper.fromBase64(jwk.p);
+		const q  = helper.fromBase64(jwk.q);
+		const qi = helper.fromBase64(jwk.qi); // qinv (q⁻¹ mod p)
+
 		// 平文の秘密鍵blob
-		const privPlain = await makeRsaPrivateBlob(keyPair.privateKey);
+		const privPlain = rfc4253.concatBytes(
+			rfc4253.writeMpint(d),
+			rfc4253.writeMpint(p),
+			rfc4253.writeMpint(q),
+			rfc4253.writeMpint(qi),
+		);
+
 		// ランダムパディング込みの秘密鍵
 		const privPadded = addRandomPadding(privPlain, 16);
 
@@ -1090,7 +1038,7 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	const keyLength  = 32;   // AES-256
 	const hash       = "SHA-256";
 
-	// Random-salt & IV
+	// RandomSaltとIVの生成
 	const salt = crypto.getRandomValues(new Uint8Array(saltSize));
 	const iv   = crypto.getRandomValues(new Uint8Array(16));
 
@@ -1107,7 +1055,7 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	// ---- AES-256-CBC + PKCS#7 padding (WebCrypto Standard)
 	const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-CBC", iv }, aesKey, buffer));
 
-	// ====== ここから ASN.1 組み立て ======
+	// ====== ここから ASN.1 (Abstract Syntax Notation 1) 組み立て ======
 
 	// PRF AlgorithmIdentifier (hmacWithSHA256, NULL)
 	const prfAlgId = pkcs8.derSequence(
@@ -1117,12 +1065,14 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 		)
 	);
 
-	// PBKDF2-params ::= SEQUENCE {
-	//   salt OCTET STRING,
-	//   iterationCount INTEGER,
-	//   keyLength INTEGER OPTIONAL,
-	//   prf AlgorithmIdentifier DEFAULT ...
-	// }
+	/*
+	 * PBKDF2-params ::= SEQUENCE {
+	 *   salt OCTET STRING,
+	 *   iterationCount INTEGER,
+	 *   keyLength INTEGER OPTIONAL,
+	 *   prf AlgorithmIdentifier DEFAULT
+	 * }
+	 */
 	const pbkdf2Params = pkcs8.derSequence(
 		pkcs8.derConcat(
 			pkcs8.derOctetString(salt),
@@ -1132,7 +1082,7 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 		)
 	);
 
-	// keyDerivationFunc AlgorithmIdentifier (PBKDF2)
+	// KeyDerivationFunction AlgorithmIdentifier (PBKDF2)
 	const kdfAlgId = pkcs8.derSequence(
 		pkcs8.derConcat(
 			pkcs8.derOid(OID.PBKDF2),
@@ -1140,7 +1090,7 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 		)
 	);
 
-	// encryptionScheme AlgorithmIdentifier (AES-256-CBC, params = IV)
+	// EncryptionScheme AlgorithmIdentifier (AES-256-CBC, params=IV)
 	const encSchemeAlgId = pkcs8.derSequence(
 		pkcs8.derConcat(
 			pkcs8.derOid(OID.AES256_CBC),
@@ -1148,7 +1098,12 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 		)
 	);
 
-	// PBES2-params ::= SEQUENCE { keyDerivationFunc, encryptionScheme }
+	/*
+	 * PBES2-params ::= SEQUENCE {
+	 *   keyDerivationFunc,
+	 *   encryptionScheme
+	 * }
+	 */
 	const pbes2Params = pkcs8.derSequence(
 		pkcs8.derConcat(
 			kdfAlgId,
@@ -1167,7 +1122,12 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	// encryptedData OCTET STRING
 	const encryptedData = pkcs8.derOctetString(ciphertext);
 
-	// EncryptedPrivateKeyInfo ::= SEQUENCE { encryptionAlgorithm, encryptedData }
+	/*
+	 * EncryptedPrivateKeyInfo ::= SEQUENCE {
+	 *   encryptionAlgorithm,
+	 *   encryptedData
+	 * }
+	 */
 	const encryptedPrivateKeyInfo = pkcs8.derSequence(
 		pkcs8.derConcat(
 			encryptionAlgorithm,
@@ -1185,21 +1145,19 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
  * Generates an OpenSSH private key block in Uint8Array format.
  *
  * @param {string} keyType - The type of the key (e.g., "ssh-rsa").
- * @param {Uint8Array} publicBlob - The public portion of the key in binary format.
  * @param {Uint8Array} privatePart - The private portion of the key in binary format, specific to the key type.
  * @param {string} [comment] - An optional comment to include in the key block.
  * @return {Uint8Array} A Uint8Array representing the OpenSSH private key block, padded to a multiple of the block size.
  */
-function makeOpenSshPrivateBlock(keyType, publicBlob, privatePart, comment) {
+function makeOpenSshPrivateBlock(keyType, privatePart, comment) {
 	const check = crypto.getRandomValues(new Uint32Array(1))[0];
 
 	const core = rfc4253.concatBytes(
-		rfc4253.writeUint32(check),            // uint32 checkint1
-		rfc4253.writeUint32(check),            // uint32 checkint2
-		rfc4253.writeString(keyType),          // "ssh-rsa" など
-		rfc4253.writeStringBytes(publicBlob),  // Uint8Array
-		rfc4253.writeStringBytes(privatePart), // Uint8Array (鍵種別ごとの生フィールド)
-		rfc4253.writeString(comment || "")
+		rfc4253.writeUint32(check),     // uint32     checkint1
+		rfc4253.writeUint32(check),     // uint32     checkint2
+		rfc4253.writeString(keyType),   // string     key type ("ssh-rsa" など)
+		privatePart,                    // Uint8Array private key fields (鍵種別ごとの生フィールド)
+		rfc4253.writeString(comment)    // string     comment
 	);
 
 	// パディング (OpenSSHはblockSize=8)
@@ -1227,6 +1185,16 @@ function makeOpenSshPrivateBlock(keyType, publicBlob, privatePart, comment) {
  * @return {Uint8Array} The combined byte array representing the OpenSSH key in version 1 format.
  */
 function buildOpenSSHKeyV1({ ciphername, kdfname, kdfoptions, publicBlob, encryptedBlob }){
+	/*
+	 * AUTH_MAGIC "openssh-key-v1" 0x00
+	 * string ciphername
+	 * string kdfname
+	 * string kdfoptions
+	 * int    N
+	 * string publickey1             ← ここは平文
+	 * string encrypted_private_list ← ここだけ暗号化
+	 */
+
 	const magic = rfc4253.concatBytes(
 		helper.toUtf8("openssh-key-v1"),
 		new Uint8Array([0x00])
@@ -1264,7 +1232,25 @@ async function makeOpenSSHPrivateKeyV1(keyType, keyInfo, passphrase, comment) {
 	if(keyType === "ssh-rsa"){
 		const rsa = await makeRsaOpenSSHPubKey(keyInfo.public); // SPKI → OpenSSH blob
 		pubBlob   = rsa.raw;
-		privBlob  = await makeRsaPrivateBlob(keyInfo.private);
+
+		const jwk = await crypto.subtle.exportKey("jwk", keyInfo.private);
+
+		// openssh-key-v1のRSAでは n, e, d, qi, p, q の順序が必須
+		const n  = helper.fromBase64(jwk.n);
+		const e  = helper.fromBase64(jwk.e);
+		const d  = helper.fromBase64(jwk.d);
+		const qi = helper.fromBase64(jwk.qi); // qinv (q⁻¹ mod p)
+		const p  = helper.fromBase64(jwk.p);
+		const q  = helper.fromBase64(jwk.q);
+
+		privBlob = rfc4253.concatBytes(
+			rfc4253.writeMpint(n),
+			rfc4253.writeMpint(e),
+			rfc4253.writeMpint(d),
+			rfc4253.writeMpint(qi),
+			rfc4253.writeMpint(p),
+			rfc4253.writeMpint(q)
+		);
 	} else if(keyType.startsWith("ecdsa-sha2-")){
 		const ecdsa = await makeEcdsaOpenSSHPubKey(keyInfo.public);
 		pubBlob     = ecdsa.raw;
@@ -1276,7 +1262,6 @@ async function makeOpenSSHPrivateKeyV1(keyType, keyInfo, passphrase, comment) {
 	// 2. 平文の秘密鍵ブロックを作成
 	const plainBlock = makeOpenSshPrivateBlock(
 		keyType,
-		pubBlob,
 		privBlob,
 		comment || ""
 	);
@@ -1291,11 +1276,14 @@ async function makeOpenSSHPrivateKeyV1(keyType, keyInfo, passphrase, comment) {
 			encryptedBlob: plainBlock
 		});
 
-		return helper.toOpenSSHPem(binary);
+		return helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
 	}
 
 	// 3. bcrypt-pbkdf で AEADキー導出
 	const salt   = crypto.getRandomValues(new Uint8Array(16));
+	// const salt   =  Uint8Array.from(
+	// 	"7a7bf56b8e4d248241475b6cd16324a5".match(/.{2}/g).map((h) => parseInt(h, 16))
+	// );
 	const rounds = 16;
 	const aeadKey = new Uint8Array(32); // chacha20poly1305 は 32byte鍵
 
@@ -1312,16 +1300,26 @@ async function makeOpenSSHPrivateKeyV1(keyType, keyInfo, passphrase, comment) {
 		rounds
 	);
 
+	console.log([
+		"AEAD-Key Hex Dump:",
+		[...aeadKey].map((b) => b.toString(16).padStart(2, "0")).join("")
+	].join("\n"));
+
 	// 4. ChaCha20-Poly1305 で暗号化
-	const nonce = crypto.getRandomValues(new Uint8Array(12)); // nonceLength=12
-	const aead  = new window.chacha20poly1305(aeadKey);
-	const aad   = new Uint8Array(0);
+	const nonce = crypto.getRandomValues(new Uint8Array(12)); // RFC7539ではノンス(iv)長は12バイトを指定
+	const aead  = new window.chacha20poly1305(aeadKey); // AEAD (Authenticated Encryption with Associated Data)
+	const aad   = new Uint8Array(0); // 現状AADに突っ込むものがないので空のまま
 
-	const sealed = aead.seal(nonce, plainBlock, aad);
-	// sealed = ciphertext || tag (末尾16バイトがタグ)
-	const encryptedBlob = rfc4253.concatBytes(nonce, sealed);
+	const sealed = new Uint8Array(plainBlock.length + 16); // ciphertext || tag (末尾16バイトがタグ)
+	aead.seal(nonce, plainBlock, aad, sealed);
 
-	// 5. kdfoptions & コンテナ
+	// nonce || ciphertext || tag
+	const encryptedBlob = rfc4253.concatBytes(
+		nonce, // 復号時に使うノンスを付与
+		sealed
+	);
+
+	// 5. KDFOptions & コンテナ
 	const kdfoptions = rfc4253.concatBytes(
 		rfc4253.writeStringBytes(salt),  // string salt
 		rfc4253.writeUint32(rounds)      // uint32 rounds
@@ -1335,7 +1333,7 @@ async function makeOpenSSHPrivateKeyV1(keyType, keyInfo, passphrase, comment) {
 		encryptedBlob
 	});
 
-	return helper.toOpenSSHPem(binary);
+	return helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
 }
 
 /**
@@ -1366,7 +1364,8 @@ const addRandomPadding = (plain, blockSize = 16) => {
 };
 
 /**
- * Encrypts the given plaintext using AES-CBC encryption with the provided key and initialization vector (IV).
+ * Encrypts the given plaintext using AES-CBC encryption
+ * with the provided key and initialization vector (IV) within PKCS#7 padding.
  *
  * @async
  * @param {Uint8Array} keyBytes - The encryption key as a sequence of bytes.
@@ -1382,7 +1381,8 @@ const aesCbcEncryptRaw = async (keyBytes, ivBytes, plaintext) => {
 };
 
 /**
- * Encrypts the given plaintext using AES-CBC with the provided key and initialization vector (IV) with no padding.
+ * Encrypts the given plaintext using AES-CBC
+ * with the provided key and initialization vector (IV) without padding.
  *
  * @param {Uint8Array} keyBytes - The encryption key as a sequence of bytes.
  * @param {Uint8Array} ivBytes - The initialization vector as a sequence of bytes.

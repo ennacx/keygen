@@ -192,7 +192,7 @@ $(() => {
 
 		const al = $('select[name="algo"] option:selected').val();
 		const opt = {
-			comment: $('input[name="comment"]').val().replace(/[^0-9a-z\-_]/g, '')
+			comment: $('input[name="comment"]').val().replace(/[^ -~]/g, '') // 半角英数字と記号以外は省く
 		};
 
 		const $progress = $('#generate-fill');
@@ -219,11 +219,13 @@ $(() => {
 				break;
 		}
 
+		const encType = $('input[name="enc-type"]:checked').val();
+
 		if($passphraseCheck.prop('checked')){
 			const passphrase = $('input[name="passphrase"]').val();
 			const passphrase_c = $('input[name="passphrase_c"]').val();
 
-			if(passphrase === ''){
+			if(encType === "pkcs8" && passphrase === ''){
 				$errorAlert.text("Passphrase is required").show();
 				return;
 			} else if(passphrase !== passphrase_c){
@@ -238,23 +240,28 @@ $(() => {
 			const result = await generateKey(al, opt, progress);
 
 			// 公開PEM
-			const publicPEM  = helper.toPEM(result.public, PEM_LABEL.publicKey);
+			const publicPEM  = helper.toPEM(result.public, PEM_LABEL.publicKey, 64);
+
 			// 秘密PEM
 			let privatePEM;
-			if(opt.passphrase && opt.passphrase !== ""){
-				const encType = $('input[name="enc-type"]:checked').val();
+			if($passphraseCheck.prop('checked')){
 				switch(encType){
 					case 'pkcs8':
-						privatePEM = await helper.toEncryptedPkcs8PEM(result.private, opt.passphrase, { iterations: 100_000 });
+						if(opt.passphrase && opt.passphrase !== ""){
+							const { der } = await encryptPkcs8WithPBES2(result.private, opt.passphrase, { iterations: 100_000 });
+							privatePEM = helper.toPEM(der, PEM_LABEL.privateKey, 64, PEM_LABEL.encryptedAdd);
+						} else{
+							throw new Error("Passphrase is required for PKCS#8 encryption.");
+						}
 						break;
 					case 'sshv1':
-						privatePEM = await makeOpenSSHPrivateKeyV1(opt.prefix, { public: result.public, private: result.raw.privateKey }, opt.passphrase, opt.comment);
+						privatePEM = await makeOpenSSHPrivateKeyV1(opt.prefix, { public: result.public, private: result.raw.privateKey }, opt.passphrase || "", opt.comment);
 						break;
 					default:
 						throw new Error(`Invalid encryption type ${encType}`);
 				}
-			} else {
-				privatePEM = helper.toPEM(result.private, PEM_LABEL.privateKey);
+			} else{
+				privatePEM = helper.toPEM(result.private, PEM_LABEL.privateKey, 64);
 			}
 
 			// 表示用
@@ -272,7 +279,7 @@ $(() => {
 			} else{
 				$('#dlPrivPpk').prop('disabled', true);
 			}
-		} catch(e) {
+		} catch(e){
 			$errorAlert.text(e.message).show();
 		}
 	});
