@@ -469,7 +469,7 @@ const helper = {
 };
 
 /**
- * A utility object for encoding data into DER (Distinguished Encoding Rules) format,
+ * A utility object for encoding data into DER (Distinguished Encoding Rules) format (RFC8018),
  * commonly used in PKCS8 cryptographic data structures. Contains functions for
  * creating various DER-encoded elements like sequences, integers, octet strings,
  * and object identifiers. Primarily utilized for constructing and managing cryptographic
@@ -1142,20 +1142,72 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 }
 
 /**
- * Generates an OpenSSH private key block in Uint8Array format.
+ * Generates a derived key using the bcrypt-PBKDF function.
  *
- * @param {string} keyType - The type of the key (e.g., "ssh-rsa").
- * @param {Uint8Array} privatePart - The private portion of the key in binary format, specific to the key type.
- * @param {string} [comment] - An optional comment to include in the key block.
- * @return {Uint8Array} A Uint8Array representing the OpenSSH private key block, padded to a multiple of the block size.
+ * This function creates a cryptographic key based on a given passphrase and returns
+ * both the derived key and the randomly generated salt. It uses bcrypt-PBKDF, a
+ * password-based key derivation function, which is a derivation of the bcrypt algorithm,
+ * to securely derive keys for cryptographic purposes.
+ *
+ * @param {string} passphrase - The input passphrase to be used for deriving the key.
+ * @param {number} [rounds=16] - The number of iterations for key derivation.
+ *                               A higher value increases security at the cost of computational performance.
+ * @param {number} [saltLen=16] - The length of the salt to be generated in bytes.
+ * @param {number} [returnBufferLen=32] - The length of the derived key to generate in bytes.
+ * @returns {Object} An object containing the following properties:
+ *                   - `salt` {Uint8Array}: The randomly generated salt used in the derivation process.
+ *                   - `aeadKey` {Uint8Array}: The derived key in a byte array format.
+ * @throws {Error} If the passphrase is empty or invalid.
  */
-function makeOpenSshPrivateBlock(keyType, privatePart, comment) {
+const bcryptKdf = (passphrase, rounds = 16, saltLen = 16, returnBufferLen = 32) => {
+	if(!passphrase){
+		throw new Error("Empty passphrase");
+	}
+
+	const passBytes = helper.toUtf8(passphrase);
+	const saltBytes = crypto.getRandomValues(new Uint8Array(saltLen));
+//	const saltBytes = Uint8Array.from("7a7bf56b8e4d248241475b6cd16324a5".match(/.{2}/g).map((h) => parseInt(h, 16)));
+	const aeadKey   = new Uint8Array(returnBufferLen);
+
+	// bcrypt-pbkdf.pbkdf(pass, passlen, salt, saltlen, key, keylen, rounds)
+	window.bcryptPbkdf.pbkdf(
+		passBytes,
+		passBytes.length,
+		saltBytes,
+		saltBytes.length,
+		aeadKey,
+		aeadKey.length,
+		rounds
+	);
+
+	console.log([
+		"AEAD-Key Hex Dump:",
+		[...aeadKey].map((b) => b.toString(16).padStart(2, "0")).join("")
+	].join("\n"));
+
+	return { salt: saltBytes, aeadKey };
+};
+
+/**
+ * Generates an OpenSSH private key block in binary format.
+ * The method constructs the binary structure for an OpenSSH private key by combining the private key fields,
+ * public key blob, comment, and other required metadata according to OpenSSH specifications.
+ * Includes padding to ensure the block size is a multiple of 8 bytes.
+ *
+ * @param {string} keyType - The type of the SSH key (e.g., "ssh-rsa").
+ * @param {Uint8Array} publicBlob - The public key blob in binary format.
+ * @param {Uint8Array} privatePart - The private key fields specific to the key type in binary format.
+ * @param {string} comment - A comment describing the key.
+ * @return {Uint8Array} A Uint8Array representing the complete OpenSSH private key block in binary form.
+ */
+function makeOpenSshPrivateBlock(keyType, publicBlob, privatePart, comment) {
 	const check = crypto.getRandomValues(new Uint32Array(1))[0];
 
 	const core = rfc4253.concatBytes(
 		rfc4253.writeUint32(check),     // uint32     checkint1
 		rfc4253.writeUint32(check),     // uint32     checkint2
 		rfc4253.writeString(keyType),   // string     key type ("ssh-rsa" など)
+		rfc4253.writeStringBytes(publicBlob),
 		privatePart,                    // Uint8Array private key fields (鍵種別ごとの生フィールド)
 		rfc4253.writeString(comment)    // string     comment
 	);
@@ -1177,22 +1229,22 @@ function makeOpenSshPrivateBlock(keyType, privatePart, comment) {
  * Builds an OpenSSH key in version 1 format by combining specified components into a structured binary representation.
  *
  * @param {Object} params - The input parameters for creating the OpenSSH key.
- * @param {string} params.ciphername - The cipher name used for encryption, e.g., "chacha20-poly1305@openssh.com".
- * @param {string} params.kdfname - The key derivation function name, e.g., "bcrypt".
- * @param {Uint8Array} params.kdfoptions - The key derivation function options as a byte array.
+ * @param {string} params.cipherName - The cipher name used for encryption, e.g., "chacha20-poly1305@openssh.com".
+ * @param {string} params.kdfName - The key derivation function name, e.g., "bcrypt".
+ * @param {Uint8Array} params.kdfOptions - The key derivation function options as a byte array.
  * @param {Uint8Array} params.publicBlob - The public key data as a byte array.
  * @param {Uint8Array} params.encryptedBlob - The encrypted private key data as a byte array.
  * @return {Uint8Array} The combined byte array representing the OpenSSH key in version 1 format.
  */
-function buildOpenSSHKeyV1({ ciphername, kdfname, kdfoptions, publicBlob, encryptedBlob }){
+function buildOpenSSHKeyV1({ cipherName, kdfName, kdfOptions, publicBlob, encryptedBlob }){
 	/*
 	 * AUTH_MAGIC "openssh-key-v1" 0x00
-	 * string ciphername
-	 * string kdfname
-	 * string kdfoptions
+	 * string cipherName
+	 * string kdfName
+	 * string kdfOptions
 	 * int    N
-	 * string publickey1             ← ここは平文
-	 * string encrypted_private_list ← ここだけ暗号化
+	 * string publicKey1           ← ここは平文
+	 * string encryptedPrivateList ← ここだけ暗号化
 	 */
 
 	const magic = rfc4253.concatBytes(
@@ -1202,9 +1254,9 @@ function buildOpenSSHKeyV1({ ciphername, kdfname, kdfoptions, publicBlob, encryp
 
 	return rfc4253.concatBytes(
 		magic,
-		rfc4253.writeString(ciphername),        // "chacha20-poly1305@openssh.com"
-		rfc4253.writeString(kdfname),           // "bcrypt"
-		rfc4253.writeStringBytes(kdfoptions),   // string kdfoptions
+		rfc4253.writeString(cipherName),        // e.g., "aes256-ctr", "chacha20-poly1305@openssh.com"
+		rfc4253.writeString(kdfName),           // "bcrypt"
+		rfc4253.writeStringBytes(kdfOptions),   // string kdfOptions
 		rfc4253.writeUint32(1),                 // 鍵の個数 N=1
 		rfc4253.writeStringBytes(publicBlob),   // string publickey1
 		rfc4253.writeStringBytes(encryptedBlob) // string encrypted_privates
@@ -1212,9 +1264,11 @@ function buildOpenSSHKeyV1({ ciphername, kdfname, kdfoptions, publicBlob, encryp
 }
 
 /**
- * Generates an OpenSSH private key in the v1 format.
+ * Generates an OpenSSH private key in the "openssh-key-v1" format,
+ * using the bcrypt-pbkdf key derivation function for optional encryption and ChaCha20-Poly1305 sealing.
  *
  * @async
+ * @param {string} cipher - a
  * @param {string} keyType - The type of key to generate, such as "ssh-rsa" or "ecdsa-sha2-<curve-name>".
  * @param {Object} keyInfo - The key information containing the public and private key components.
  * @param {string} [keyInfo.public] - The public key component.
@@ -1224,7 +1278,7 @@ function buildOpenSSHKeyV1({ ciphername, kdfname, kdfoptions, publicBlob, encryp
  * @return {Promise<string>} A Promise that resolves to the OpenSSH private key in PEM (Base64-encoded) format.
  * @throws {Error} If an unsupported key type is provided.
  */
-async function makeOpenSSHPrivateKeyV1(keyType, keyInfo, passphrase, comment) {
+async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, comment) {
 	// 1. 公開鍵blobと秘密フィールドblobを作る
 	let pubBlob;
 	let privBlob;
@@ -1262,6 +1316,7 @@ async function makeOpenSSHPrivateKeyV1(keyType, keyInfo, passphrase, comment) {
 	// 2. 平文の秘密鍵ブロックを作成
 	const plainBlock = makeOpenSshPrivateBlock(
 		keyType,
+		pubBlob,
 		privBlob,
 		comment || ""
 	);
@@ -1269,9 +1324,9 @@ async function makeOpenSSHPrivateKeyV1(keyType, keyInfo, passphrase, comment) {
 	// パスフレーズ無しなら暗号化せずにそのまま入れる
 	if(!passphrase){
 		const binary = buildOpenSSHKeyV1({
-			ciphername:    "none",
-			kdfname:       "none",
-			kdfoptions:    new Uint8Array(0),
+			cipherName:    "none",
+			kdfName:       "none",
+			kdfOptions:    new Uint8Array(0),
 			publicBlob:    pubBlob,
 			encryptedBlob: plainBlock
 		});
@@ -1279,59 +1334,92 @@ async function makeOpenSSHPrivateKeyV1(keyType, keyInfo, passphrase, comment) {
 		return helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
 	}
 
-	// 3. bcrypt-pbkdf で AEADキー導出
-	const salt   = crypto.getRandomValues(new Uint8Array(16));
-	// const salt   =  Uint8Array.from(
-	// 	"7a7bf56b8e4d248241475b6cd16324a5".match(/.{2}/g).map((h) => parseInt(h, 16))
-	// );
 	const rounds = 16;
-	const aeadKey = new Uint8Array(32); // chacha20poly1305 は 32byte鍵
 
-	const passBytes = helper.toUtf8(passphrase);
+	let binary;
 
-	// bcrypt-pbkdf.pbkdf(pass, passlen, salt, saltlen, key, keylen, rounds)
-	window.bcryptPbkdf.pbkdf(
-		passBytes,
-		passBytes.length,
-		salt,
-		salt.length,
-		aeadKey,
-		aeadKey.length,
-		rounds
-	);
+	// ChaCha20-Poly1305
+	if(cipher === "cc20p1305"){
+		// 3. bcrypt-pbkdfでAEADキー導出
+		const kdf = bcryptKdf(passphrase, rounds, 16, 32);
 
-	console.log([
-		"AEAD-Key Hex Dump:",
-		[...aeadKey].map((b) => b.toString(16).padStart(2, "0")).join("")
-	].join("\n"));
+		// 4. ChaCha20-Poly1305 で暗号化
+		const nonce = crypto.getRandomValues(new Uint8Array(12)); // RFC7539ではノンス(iv)長は12バイトを指定
+		const aead  = new window.chacha20poly1305(kdf.aeadKey); // AEAD (Authenticated Encryption with Associated Data)
+		const aad   = new Uint8Array(0); // 現状AADに突っ込むものがないので空のまま
 
-	// 4. ChaCha20-Poly1305 で暗号化
-	const nonce = crypto.getRandomValues(new Uint8Array(12)); // RFC7539ではノンス(iv)長は12バイトを指定
-	const aead  = new window.chacha20poly1305(aeadKey); // AEAD (Authenticated Encryption with Associated Data)
-	const aad   = new Uint8Array(0); // 現状AADに突っ込むものがないので空のまま
+		const sealed = new Uint8Array(plainBlock.length + 16); // ciphertext || tag (末尾16バイトがタグ) FIXME: 必ずpadding後に暗号化
+		aead.seal(nonce, plainBlock, aad, sealed);
 
-	const sealed = new Uint8Array(plainBlock.length + 16); // ciphertext || tag (末尾16バイトがタグ)
-	aead.seal(nonce, plainBlock, aad, sealed);
+		// nonce || ciphertext || tag
+		const encryptedBlob = rfc4253.concatBytes(
+			nonce, // 復号時に使うノンスを付与
+			sealed
+		);
 
-	// nonce || ciphertext || tag
-	const encryptedBlob = rfc4253.concatBytes(
-		nonce, // 復号時に使うノンスを付与
-		sealed
-	);
+		// 5. KDFOptions & コンテナ
+		const kdfOptions = rfc4253.concatBytes(
+			rfc4253.writeStringBytes(kdf.salt), // string salt
+			rfc4253.writeUint32(rounds)         // uint32 rounds
+		);
 
-	// 5. KDFOptions & コンテナ
-	const kdfoptions = rfc4253.concatBytes(
-		rfc4253.writeStringBytes(salt),  // string salt
-		rfc4253.writeUint32(rounds)      // uint32 rounds
-	);
+		binary = buildOpenSSHKeyV1({
+			cipherName:   "chacha20-poly1305@openssh.com", // FIXME: "@openssh.com"を落とすと即アウト。大文字小文字も区別される
+			kdfName:      "bcrypt",
+			kdfOptions,
+			publicBlob:   pubBlob,
+			encryptedBlob
+		});
+	}
+	// AES-256-CTR
+	else if(cipher === "aes256ctr"){
+		// 3. bcrypt-pbkdfでAEADキー導出
+		const kdf = bcryptKdf(passphrase, rounds, 16, 48);
 
-	const binary = buildOpenSSHKeyV1({
-		ciphername:   "chacha20-poly1305@openssh.com",
-		kdfname:      "bcrypt",
-		kdfoptions,
-		publicBlob:   pubBlob,
-		encryptedBlob
-	});
+		// 4. AES-256-CTR で暗号化
+		const aesKeyBytes = kdf.aeadKey.slice(0, 32); // 32バイト分
+		const aesKey = await crypto.subtle.importKey(
+			"raw",
+			aesKeyBytes,
+			{ name: "AES-CTR", length: 256 },
+			false,
+			["encrypt"]
+		);
+
+		const iv = kdf.aeadKey.slice(32, 48); // 16バイト分
+
+		const encrypted = new Uint8Array(
+			await crypto.subtle.encrypt(
+				{
+					name: "AES-CTR",
+					counter: iv,    // 16bytes
+					length: 128     // カウンタ部のビット長
+				},
+				aesKey,
+				plainBlock // openssh-key-v1のcheckintからpaddingまで
+			)
+		);
+
+		const encryptedBlob = encrypted;
+
+		// 5. KDFOptions & コンテナ
+		const kdfOptions = rfc4253.concatBytes(
+			rfc4253.writeStringBytes(kdf.salt), // string salt
+			rfc4253.writeUint32(rounds)         // uint32 rounds
+		);
+
+		binary = buildOpenSSHKeyV1({
+			cipherName:   "aes256-ctr",
+			kdfName:      "bcrypt",
+			kdfOptions,
+			publicBlob:   pubBlob,
+			encryptedBlob
+		});
+	}
+	// その他
+	else{
+		throw new Error(`Unsupported cipher for OpenSSH-key-v1: ${cipher}`);
+	}
 
 	return helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
 }
