@@ -253,11 +253,20 @@ $(() => {
 						} else{
 							throw new Error("Passphrase is required for PKCS#8 encryption.");
 						}
+
 						break;
 					case 'sshv1-cc20p1305':
 					case 'sshv1-aes256ctr':
 						const cipher = encType.replace(/^sshv1-/, "");
-						privatePEM = await makeOpenSSHPrivateKeyV1(cipher, opt.prefix, { public: result.public, private: result.raw.privateKey }, opt.passphrase || "", opt.comment);
+
+						privatePEM = await makeOpenSSHPrivateKeyV1(
+							cipher,
+							opt.prefix,
+							{ public: result.public, private: result.raw.privateKey },
+							opt.passphrase || "",
+							opt.comment
+						);
+
 						break;
 					default:
 						throw new Error(`Invalid encryption type ${encType}`);

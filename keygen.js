@@ -290,6 +290,7 @@ class Parser {
  */
 async function makeFingerprint(blob) {
 	const digest = await crypto.subtle.digest("SHA-256", blob);
+
 	return helper.toBase64(digest)
 		// OpenSSH風に末尾の=を削る
 		.replace(/=+$/, "");
@@ -348,11 +349,12 @@ async function makeEcdsaOpenSSHPubKey(spkiBuf) {
 }
 
 /**
- * Generates an ECDSA private key blob in the appropriate format.
+ * Generates an ECDSA private key blob using the provided private key.
  *
- * @async
- * @param {CryptoKey} privateKey - The ECDSA private key to be exported and processed.
- * @return {Promise<Uint8Array>} A promise that resolves to the ECDSA private key blob represented as a byte array.
+ * @param {CryptoKey} privateKey - The ECDSA private key to be exported and converted.
+ * @return {Promise<Object>} An object containing:
+ * - d: The private scalar (mpint encoded) derived from the private key.
+ * - Q: The concatenated public key point in uncompressed form.
  */
 async function makeEcdsaPrivateBlob(privateKey) {
 	const jwk = await crypto.subtle.exportKey("jwk", privateKey);
@@ -360,8 +362,19 @@ async function makeEcdsaPrivateBlob(privateKey) {
 	// ECDSAでは d だけ
 	const d = helper.fromBase64(jwk.d);
 
+	// Q点 (0x04 || xBytes || yBytes)
+	// Q.length = P-256: 65bytes(1+32+32), P-384: 97bytes, P-521: 133bytes
+	const Q = rfc4253.concatBytes(
+		Uint8Array.from([0x04]),
+		helper.fromBase64(jwk.x),
+		helper.fromBase64(jwk.y)
+	);
+
 	// PPKv3の`C.3.3: NIST EC keys`は`mpint(d)`だけ
-	return rfc4253.writeMpint(d);
+	return {
+		d: rfc4253.writeMpint(d),
+		Q: Q,
+	};
 }
 
 /**
@@ -387,7 +400,6 @@ const helper = {
 	 */
 	hexPad: (arr) => [...arr].map((b) => b.toString(16).padStart(2, "0")).join(""),
 
-
 	/**
 	 * Encodes a given string into its corresponding UTF-8 byte representation.
 	 *
@@ -408,6 +420,17 @@ const helper = {
 	 * @returns {string} The string formatted with line breaks.
 	 */
 	stringWrap: (str, width = 64) => str.replace(new RegExp(`(.{1,${width}})`, "g"), (match, grp1) => (grp1) ? `${grp1}\n` : "").trimEnd(),
+
+	/**
+	 * Calculates the number of lines in a given string.
+	 *
+	 * This function splits the input string by newline characters ("\n") and counts the number of resulting segments,
+	 * effectively determining the number of lines in the input.
+	 *
+	 * @param {string} str - The input string to evaluate.
+	 * @returns {number} The number of lines in the input string.
+	 */
+	lineCount: (str) => str.split("\n").length,
 
 	/**
 	 * Converts an ArrayBuffer or TypedArray to a Base64-encoded string.
@@ -837,8 +860,11 @@ const forPPK = {
 		);
 
 		// Encryption:none の場合は`enc = null`
-		// PPKv3のMACは「鍵の秘密性」ではなく「改ざん検出」用途なので、PuTTY 側も HMAC の key="" と key="\x00" を区別していない。
-		// ただし空の配列だとWebCryptoの規約違反なので0番目に\x00を入れて違反を回避。
+		/*
+		 * FIXME:
+		 *  PPKv3のMACは「鍵の秘密性」ではなく「改ざん検出」用途なので、PuTTY側もHMACのkey=""とkey="\x00"を区別していない。
+		 *  ただし空の配列だとWebCryptoの規約違反なので0番目に\x00を入れて違反を回避。
+		 */
 		const keyData = (enc instanceof Uint8Array && enc.length > 0) ? enc : new Uint8Array([0]);
 		const key = await crypto.subtle.importKey("raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
 		const sig = await crypto.subtle.sign("HMAC", key, macInput);
@@ -907,11 +933,11 @@ const forPPK = {
 			throw new Error(`Unsupported encryption: ${encryption}`);
 		}
 
-		const privB64 = helper.toBase64(privOut);
-		const pubLines  = helper.stringWrap(pubB64);
-		const privLines = helper.stringWrap(privB64);
-		const pubLineCount = pubLines.split("\n").length;
-		const prvLineCount = privLines.split("\n").length;
+		const privB64      = helper.toBase64(privOut);
+		const pubLines     = helper.stringWrap(pubB64);
+		const privLines    = helper.stringWrap(privB64);
+		const pubLineCount = helper.lineCount(pubLines);
+		const prvLineCount = helper.lineCount(privLines);
 
 		// MACは常に「平文＋パディング側」を入力にする！
 		const macHex = await forPPK.computeMac(
@@ -923,6 +949,7 @@ const forPPK = {
 			macKey
 		);
 
+		// FIXME: 順番重要
 		return [
 			`PuTTY-User-Key-File-3: ${algorithmName}`,
 			`Encryption: ${encryption}`,
@@ -952,7 +979,8 @@ const forPPK = {
 		const pubB64 = helper.toBase64(pubBlob);
 
 		// 平文の秘密鍵blob
-		const privPlain = await makeEcdsaPrivateBlob(keyPair.privateKey);
+		const priv = await makeEcdsaPrivateBlob(keyPair.privateKey);
+		const privPlain = priv.d;
 		// ランダムパディング込みの秘密鍵
 		const privPadded = addRandomPadding(privPlain, 16);
 
@@ -983,11 +1011,11 @@ const forPPK = {
 			throw new Error(`Unsupported encryption: ${encryption}`);
 		}
 
-		const privB64 = helper.toBase64(privOut);
-		const pubLines = helper.stringWrap(pubB64);
-		const privLines = helper.stringWrap(privB64);
-		const pubLineCount = pubLines.split("\n").length;
-		const prvLineCount = privLines.split("\n").length;
+		const privB64      = helper.toBase64(privOut);
+		const pubLines     = helper.stringWrap(pubB64);
+		const privLines    = helper.stringWrap(privB64);
+		const pubLineCount = helper.lineCount(pubLines);
+		const prvLineCount = helper.lineCount(privLines);
 
 		// MACは常に「平文＋パディング側」を入力にする！
 		const macHex = await forPPK.computeMac(
@@ -999,6 +1027,7 @@ const forPPK = {
 			macKey
 		);
 
+		// FIXME: 順番重要
 		return [
 			`PuTTY-User-Key-File-3: ${algorithmName}`,
 			`Encryption: ${encryption}`,
@@ -1200,17 +1229,30 @@ const bcryptKdf = (passphrase, rounds = 16, saltLen = 16, returnBufferLen = 32) 
  * @param {string} comment - A comment describing the key.
  * @return {Uint8Array} A Uint8Array representing the complete OpenSSH private key block in binary form.
  */
-function makeOpenSshPrivateBlock(keyType, publicBlob, privatePart, comment) {
+function makeOpenSshPrivateBlock(keyType, publicBlob, privatePart, comment, opt = {}) {
 	const check = crypto.getRandomValues(new Uint32Array(1))[0];
 
-	const core = rfc4253.concatBytes(
-		rfc4253.writeUint32(check),     // uint32     checkint1
-		rfc4253.writeUint32(check),     // uint32     checkint2
-		rfc4253.writeString(keyType),   // string     key type ("ssh-rsa" など)
-		rfc4253.writeStringBytes(publicBlob),
-		privatePart,                    // Uint8Array private key fields (鍵種別ごとの生フィールド)
-		rfc4253.writeString(comment)    // string     comment
-	);
+	let core;
+	if(keyType === "ssh-rsa"){
+		core = rfc4253.concatBytes(
+			rfc4253.writeUint32(check),     // uint32     checkint1
+			rfc4253.writeUint32(check),     // uint32     checkint2
+			rfc4253.writeString(keyType),   // string     key type ("ssh-rsa" など)
+			rfc4253.writeStringBytes(publicBlob),
+			privatePart,                    // Uint8Array private key fields (鍵種別ごとの生フィールド)
+			rfc4253.writeString(comment)    // string     comment
+		);
+	} else if(keyType.startsWith("ecdsa-sha2-") && opt.Q instanceof Uint8Array){
+		core = rfc4253.concatBytes(
+			rfc4253.writeUint32(check),      // uint32     checkint1
+			rfc4253.writeUint32(check),      // uint32     checkint2
+			rfc4253.writeString(keyType),    // string     key type ("ecdsa-sha2-nisp256" など)
+			rfc4253.writeString(keyType.replace("ecdsa-sha2-", "")),   // string     curve ("nisp256" など)
+			rfc4253.writeStringBytes(opt.Q), // Q
+			privatePart,                     // Uint8Array private key fields (鍵種別ごとの生フィールド)
+			rfc4253.writeString(comment)     // string     comment
+		);
+	}
 
 	// パディング (OpenSSHはblockSize=8)
 	const blockSize = 8;
@@ -1268,7 +1310,7 @@ function buildOpenSSHKeyV1({ cipherName, kdfName, kdfOptions, publicBlob, encryp
  * using the bcrypt-pbkdf key derivation function for optional encryption and ChaCha20-Poly1305 sealing.
  *
  * @async
- * @param {string} cipher - a
+ * @param {string} cipher - The encryption cipher for securing the private key (e.g., "aes256ctr", "cc20p1305").
  * @param {string} keyType - The type of key to generate, such as "ssh-rsa" or "ecdsa-sha2-<curve-name>".
  * @param {Object} keyInfo - The key information containing the public and private key components.
  * @param {string} [keyInfo.public] - The public key component.
@@ -1283,13 +1325,16 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 	let pubBlob;
 	let privBlob;
 
+	const opt = {};
+
+	// RSA
 	if(keyType === "ssh-rsa"){
 		const rsa = await makeRsaOpenSSHPubKey(keyInfo.public); // SPKI → OpenSSH blob
 		pubBlob   = rsa.raw;
 
 		const jwk = await crypto.subtle.exportKey("jwk", keyInfo.private);
 
-		// openssh-key-v1のRSAでは n, e, d, qi, p, q の順序が必須
+		// FIXME: openssh-key-v1のRSAでは n, e, d, qi, p, q の順序が必須
 		const n  = helper.fromBase64(jwk.n);
 		const e  = helper.fromBase64(jwk.e);
 		const d  = helper.fromBase64(jwk.d);
@@ -1305,20 +1350,28 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 			rfc4253.writeMpint(p),
 			rfc4253.writeMpint(q)
 		);
-	} else if(keyType.startsWith("ecdsa-sha2-")){
+	}
+	// ECDSA
+	else if(keyType.startsWith("ecdsa-sha2-")){
 		const ecdsa = await makeEcdsaOpenSSHPubKey(keyInfo.public);
 		pubBlob     = ecdsa.raw;
-		privBlob    = await makeEcdsaPrivateBlob(keyInfo.private);
-	} else{
+
+		const priv = await makeEcdsaPrivateBlob(keyInfo.private);
+		privBlob = priv.d;
+		opt.Q = priv.Q;
+	}
+	// 不正
+	else{
 		throw new Error(`Unsupported key type for OpenSSH-key-v1: ${keyType}`);
 	}
 
 	// 2. 平文の秘密鍵ブロックを作成
-	const plainBlock = makeOpenSshPrivateBlock(
+	const plainBlob = makeOpenSshPrivateBlock(
 		keyType,
 		pubBlob,
 		privBlob,
-		comment || ""
+		comment || "",
+		opt
 	);
 
 	// パスフレーズ無しなら暗号化せずにそのまま入れる
@@ -1328,7 +1381,7 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 			kdfName:       "none",
 			kdfOptions:    new Uint8Array(0),
 			publicBlob:    pubBlob,
-			encryptedBlob: plainBlock
+			encryptedBlob: plainBlob
 		});
 
 		return helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
@@ -1348,8 +1401,8 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 		const aead  = new window.chacha20poly1305(kdf.aeadKey); // AEAD (Authenticated Encryption with Associated Data)
 		const aad   = new Uint8Array(0); // 現状AADに突っ込むものがないので空のまま
 
-		const sealed = new Uint8Array(plainBlock.length + 16); // ciphertext || tag (末尾16バイトがタグ) FIXME: 必ずpadding後に暗号化
-		aead.seal(nonce, plainBlock, aad, sealed);
+		const sealed = new Uint8Array(plainBlob.length + 16); // ciphertext || tag (末尾16バイトがタグ) FIXME: 必ずpadding後に暗号化
+		aead.seal(nonce, plainBlob, aad, sealed);
 
 		// nonce || ciphertext || tag
 		const encryptedBlob = rfc4253.concatBytes(
@@ -1388,7 +1441,7 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 
 		const iv = kdf.aeadKey.slice(32, 48); // 16バイト分
 
-		const encrypted = new Uint8Array(
+		const encryptedBlob = new Uint8Array(
 			await crypto.subtle.encrypt(
 				{
 					name: "AES-CTR",
@@ -1396,11 +1449,9 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 					length: 128     // カウンタ部のビット長
 				},
 				aesKey,
-				plainBlock // openssh-key-v1のcheckintからpaddingまで
+				plainBlob // openssh-key-v1のcheckintからpaddingまで
 			)
 		);
-
-		const encryptedBlob = encrypted;
 
 		// 5. KDFOptions & コンテナ
 		const kdfOptions = rfc4253.concatBytes(
@@ -1629,6 +1680,9 @@ async function generateKey(name, opt, onProgress) {
 	// 秘密DER
 	const pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
 
+	const makeOpenSshPubKey = (opt, pubkey, comment) =>
+		`${opt.prefix} ${pubkey}` + ((comment !== undefined && comment !== '') ? ` ${comment}` : "");
+
 	// 公開鍵・フィンガープリント・PuTTY-Private-Key
 	let opensshPubkey;
 	let opensshFingerprint;
@@ -1637,7 +1691,7 @@ async function generateKey(name, opt, onProgress) {
 		case "RSA":
 			const rsaOpenssh = await makeRsaOpenSSHPubKey(spki);
 
-			opensshPubkey = `${opt.prefix} ${rsaOpenssh.pubkey}` + ((comment !== undefined && comment !== '') ? ` ${comment}` : "");
+			opensshPubkey = makeOpenSshPubKey(opt, rsaOpenssh.pubkey, comment);
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${rsaOpenssh.fingerprint}`;
 			ppk = await forPPK.makeRsaPpkV3(opt.prefix, keyPair, comment, rsaOpenssh.raw, encryption, passphrase);
 			break;
@@ -1645,7 +1699,7 @@ async function generateKey(name, opt, onProgress) {
 		case "ECDSA":
 			const ecdsaOpenssh = await makeEcdsaOpenSSHPubKey(spki);
 
-			opensshPubkey = `${opt.prefix} ${ecdsaOpenssh.pubkey}` + ((comment !== undefined && comment !== '') ? ` ${comment}` : "");
+			opensshPubkey = makeOpenSshPubKey(opt, ecdsaOpenssh.pubkey, comment);
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${ecdsaOpenssh.fingerprint}`;
 			ppk = await forPPK.makeEcdsaPpkV3(opt.prefix, keyPair, comment, ecdsaOpenssh.raw, encryption, passphrase);
 			break;
