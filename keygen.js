@@ -252,6 +252,7 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
  *                   - `salt` {Uint8Array}: The randomly generated salt used in the derivation process.
  *                   - `aeadKey` {Uint8Array}: The derived key in a byte array format.
  * @throws {Error} If the passphrase is empty or invalid.
+ * @see https://app.unpkg.com/bcrypt-pbkdf@1.0.2/files/README.md
  */
 const bcryptKdf = (passphrase, rounds = 16, saltLen = 16, returnBufferLen = 32) => {
 	if(!passphrase){
@@ -432,6 +433,7 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, passphrase, comment) {
 		};
 	}
 	// ChaCha20-Poly1305
+	// @see https://www.stablelib.com/classes/_stablelib_chacha20poly1305.ChaCha20Poly1305.html
 	else if(cipher === "cc20p1305"){
 		// 3. bcrypt-pbkdfでAEADキー導出
 		const kdf = bcryptKdf(passphrase, rounds, 16, 32);
