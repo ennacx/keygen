@@ -240,7 +240,7 @@ $(() => {
 			const result = await generateKey(al, opt, progress);
 
 			// 公開PEM
-			const publicPEM  = Helper.toPEM(result.public, PEM_LABEL.publicKey, 64);
+			const publicPEM  = App.Helper.toPEM(result.public, PEM_LABEL.publicKey, 64);
 
 			// 秘密PEM
 			let privatePEM;
@@ -249,7 +249,7 @@ $(() => {
 					case 'pkcs8':
 						if(opt.passphrase && opt.passphrase !== ""){
 							const { der } = await encryptPkcs8WithPBES2(result.private, opt.passphrase, { iterations: 100_000 });
-							privatePEM = Helper.toPEM(der, PEM_LABEL.privateKey, 64, PEM_LABEL.encryptedAdd);
+							privatePEM = App.Helper.toPEM(der, PEM_LABEL.privateKey, 64, PEM_LABEL.encryptedAdd);
 						} else{
 							throw new Error("Passphrase is required for PKCS#8 encryption.");
 						}
@@ -272,7 +272,7 @@ $(() => {
 						throw new Error(`Invalid encryption type ${encType}`);
 				}
 			} else{
-				privatePEM = Helper.toPEM(result.private, PEM_LABEL.privateKey, 64);
+				privatePEM = App.Helper.toPEM(result.private, PEM_LABEL.privateKey, 64);
 			}
 
 			// 表示用

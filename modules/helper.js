@@ -55,42 +55,6 @@ export class Helper {
 	}
 
 	/**
-	 * Converts an ArrayBuffer or TypedArray to a Base64-encoded string.
-	 *
-	 * @param {ArrayBuffer|TypedArray} buffer - The buffer or typed array that is to be converted to a Base64 string.
-	 * @returns {string} The Base64-encoded string representation of the input buffer.
-	 */
-	static toBase64(buffer) {
-		return btoa(String.fromCharCode(...new Uint8Array(buffer)));
-	}
-
-	/**
-	 * Decodes a Base64-encoded string into a Uint8Array.
-	 *
-	 * @param {string} b64 - The Base64-encoded string to decode. This string should not include
-	 *                       characters that are invalid in Base64 encoding, such as newline or whitespace.
-	 * @returns {Uint8Array|null} Returns a Uint8Array representing the decoded binary data, or null if the input is not a valid string.
-	 */
-	static fromBase64(b64) {
-		if(typeof b64 !== 'string'){
-			return null;
-		}
-
-		let s = b64.replace(/\-/g, '+').replace(/_/g, '/');
-		while(s.length % 4 > 0){
-			s += "=";
-		}
-
-		const decoded = atob(s);
-		const buffer = new Uint8Array(decoded.length);
-		for(let i = 0; i < b64.length; i++){
-			buffer[i] = decoded.charCodeAt(i);
-		}
-
-		return buffer;
-	}
-
-	/**
 	 * Converts a given buffer to a PEM formatted string.
 	 *
 	 * @param {Buffer} buffer - The binary data to be encoded in PEM format.
@@ -101,7 +65,7 @@ export class Helper {
 	 * @returns {string} A PEM formatted string with the provided label and encoded data.
 	 */
 	static toPEM(buffer, label, wrapWidth = 64, addLabel = "") {
-		const base64 = Helper.stringWrap(Helper.toBase64(buffer), wrapWidth);
+		const base64 = Helper.stringWrap(App.Bytes.toBase64(buffer), wrapWidth);
 
 		if(addLabel !== ""){
 			label = `${addLabel} ${label}`;
