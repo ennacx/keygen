@@ -10,18 +10,12 @@
     <script src="https://cdn.jsdelivr.net/npm/argon2-browser@1.18.0/dist/argon2-bundled.min.js" integrity="sha256-d8ZLlGuvGlEW3FkfS5ll1jaxtFX3Xt0tSlh8t14BaHs=" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js" integrity="sha256-PsU1wASu6yJXhdjpP7M7+Z9S45m9ffwBlptWKbrqUTE=" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js" integrity="sha384-mukV+7j0qBy/lE+ujV57q4g2TNuk05BkKqq02xNChSjuCwaNOoQVi5uaJFiXik3A" crossorigin="anonymous"></script>
-    <script type="module">
-        import bcryptPbkdf from 'https://cdn.jsdelivr.net/npm/bcrypt-pbkdf@1.0.2/+esm'
-        import * as chacha20poly1305 from 'https://cdn.jsdelivr.net/npm/@stablelib/chacha20poly1305@2.0.1/+esm'
-
-        window.bcryptPbkdf = bcryptPbkdf;
-		window.chacha20poly1305 = chacha20poly1305.ChaCha20Poly1305;
-    </script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous" defer></script>
     <script src="https://code.jquery.com/ui/1.14.1/jquery-ui.min.js" integrity="sha256-AlTido85uXPlSyyaZNsjJXeCs07eSv3r43kyCVc8ChI=" crossorigin="anonymous" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.min.js" integrity="sha256-ew8UiV1pJH/YjpOEBInP1HxVvT/SfrCmwSoUzF9JIgc=" crossorigin="anonymous" defer></script>
 
     <!-- Local JS -->
+    <script src="bridge.js" type="module"></script>
     <script src="keygen.js" defer></script>
     <script src="guri2.js" defer></script>
 

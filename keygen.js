@@ -28,6 +28,27 @@ const OID = {
 };
 
 /**
+ * Helper variable serves as the reference to the `App.Helper` module or object,
+ * providing access to various utility functions, constants, and methods that
+ * support the application in performing helper operations.
+ *
+ * This variable is initialized from the `App.Helper` and is globally available
+ * where the `Helper` is imported or defined.
+ *
+ * It is commonly used to group auxiliary or shared functionalities that
+ * assist in the main business logic of the application, enhancing code
+ * readability and maintainability.
+ */
+const Helper = App.Helper;
+
+/**
+ * The `Parser` is a reference to the `App.Parser` object.
+ * It is used to handle and process data parsing operations within the application.
+ * This object provides methods and utilities for parsing various types of data.
+ */
+const Parser = App.Parser;
+
+/**
  * An object representing PEM (Privacy Enhanced Mail) labels used for identifying
  * different types of keys and formats in PEM encoded data.
  *
@@ -45,358 +66,6 @@ const PEM_LABEL = {
 };
 
 let keygenReduceNum = -1;
-
-/**
- * A utility class providing helper functions for data encoding, string manipulation, and formatting.
- */
-class Helper {
-	/**
-	 * Converts an iterable of numeric values into a hexadecimal string.
-	 *
-	 * The function takes an input array or iterable containing numeric values (such as bytes),
-	 * converts each value to its two-character hexadecimal representation (adding leading zeros
-	 * if necessary), and concatenates the results into a single string.
-	 *
-	 * @param {Iterable<number>} arr - An iterable of numeric values to be converted.
-	 * @returns {string} A concatenated hexadecimal string representing the numeric values.
-	 */
-	static hexPad(arr){
-		return [...arr].map((b) => b.toString(16).padStart(2, "0")).join("");
-	}
-
-	/**
-	 * Encodes a given string into its corresponding UTF-8 byte representation.
-	 *
-	 * @function
-	 * @param {string} s - The input string to be encoded.
-	 * @returns {Uint8Array} The UTF-8 encoded byte array of the input string.
-	 */
-	static toUtf8(s) {
-		return new TextEncoder().encode(s);
-	}
-
-	/**
-	 * Formats a given string by wrapping it to the specified width.
-	 * Breaks the string into lines not exceeding the provided width, appending a newline character
-	 * at the end of each line, except for the last one. Trims any trailing whitespace characters
-	 * from the resulting string.
-	 *
-	 * @param {string} str - The input string to be wrapped.
-	 * @param {number} [width=64] - The maximum width of a line before wrapping. Defaults to 64 if not provided.
-	 * @returns {string} The string formatted with line breaks.
-	 */
-	static stringWrap(str, width = 64) {
-		return str.replace(new RegExp(`(.{1,${width}})`, "g"), (match, grp1) => (grp1) ? `${grp1}\n` : "").trimEnd();
-	}
-
-	/**
-	 * Calculates the number of lines in a given string.
-	 *
-	 * This function splits the input string by newline characters ("\n") and counts the number of resulting segments,
-	 * effectively determining the number of lines in the input.
-	 *
-	 * @param {string} str - The input string to evaluate.
-	 * @returns {number} The number of lines in the input string.
-	 */
-	static lineCount(str) {
-		return str.split("\n").length;
-	}
-
-	/**
-	 * Converts an ArrayBuffer or TypedArray to a Base64-encoded string.
-	 *
-	 * @param {ArrayBuffer|TypedArray} buffer - The buffer or typed array that is to be converted to a Base64 string.
-	 * @returns {string} The Base64-encoded string representation of the input buffer.
-	 */
-	static toBase64(buffer) {
-		return btoa(String.fromCharCode(...new Uint8Array(buffer)));
-	}
-
-	/**
-	 * Decodes a Base64-encoded string into a Uint8Array.
-	 *
-	 * @param {string} b64 - The Base64-encoded string to decode. This string should not include
-	 *                       characters that are invalid in Base64 encoding, such as newline or whitespace.
-	 * @returns {Uint8Array|null} Returns a Uint8Array representing the decoded binary data, or null if the input is not a valid string.
-	 */
-	static fromBase64(b64) {
-		if(typeof b64 !== 'string'){
-			return null;
-		}
-
-		let s = b64.replace(/\-/g, '+').replace(/_/g, '/');
-		while(s.length % 4 > 0){
-		s += "=";
-		}
-
-		const decoded = atob(s);
-		const buffer = new Uint8Array(decoded.length);
-		for(let i = 0; i < b64.length; i++){
-			buffer[i] = decoded.charCodeAt(i);
-		}
-
-		return buffer;
-	}
-
-	/**
-	 * Converts a given buffer to a PEM formatted string.
-	 *
-	 * @param {Buffer} buffer - The binary data to be encoded in PEM format.
-	 * @param {string} label - The label to include in the PEM header and footer (e.g., "PUBLIC KEY", "PRIVATE KEY").
-	 * @param {number} [wrapWidth=64] - The width of line wrapping for the base64 content; defaults to 64.
-	 * @param {string} [addLabel=""] - An optional additional prefix to the label,
-	 *                                   appended before the main label in the header and footer (e.g., "ENCRYPTED", "OPENSSH").
-	 * @returns {string} A PEM formatted string with the provided label and encoded data.
-	 */
-	static toPEM(buffer, label, wrapWidth = 64, addLabel = "") {
-		const base64 = Helper.stringWrap(Helper.toBase64(buffer), wrapWidth);
-
-		if(addLabel !== ""){
-			label = `${addLabel} ${label}`;
-		}
-
-		return [
-			`-----BEGIN ${label}-----`,
-			base64,
-			`-----END ${label}-----`
-		].join("\n");
-	}
-}
-
-/**
- * Represents a parser for decoding RSA and ECDSA SubjectPublicKeyInfo structures.
- * This class provides methods to extract relevant public key components such as
- * modulus, exponent, curve name, and EC points from their respective binary formats.
- */
-class Parser {
-	#bytes;
-	#offset = 0;
-
-	/**
-	 * Constructs an instance with the specified SPKI (Subject Public Key Info) buffer.
-	 *
-	 * @param {Uint8Array|ArrayBuffer} spkiBuf - The Subject Public Key Info buffer used for initialization. Can be either a Uint8Array or an ArrayBuffer.
-	 * @return {void} This constructor does not return a value.
-	 */
-	constructor(spkiBuf){
-		this.#bytes = (spkiBuf instanceof Uint8Array) ? spkiBuf : new Uint8Array(spkiBuf);
-		this.#offset = 0;
-	}
-
-	/**
-	 * Parses an RSA SubjectPublicKeyInfo structure to extract the modulus and exponent components of an RSA public key.
-	 *
-	 * @return {Object} An object containing the RSA public key details:
-	 *  - `name`: The key algorithm name (always "ssh-rsa" for RSA keys).
-	 *  - `n`: The modulus as a byte array.
-	 *  - `e`: The exponent as a byte array.
-	 */
-	rsaSpki() {
-		try {
-			// SubjectPublicKeyInfo
-			this.#expect(0x30);           // SEQUENCE
-			this.#readLen();              // 全体長
-
-			// AlgorithmIdentifier
-			this.#expect(0x30);           // SEQUENCE
-			const algLen = this.#readLen();
-			this.#offset += algLen;       // ざっくりスキップ（rsaEncryption前提）
-
-			// subjectPublicKey (BIT STRING)
-			this.#expect(0x03);
-			const bitLen = this.#readLen();
-			this.#offset++;               // unused bits = 0
-
-			// RSAPublicKey
-			this.#expect(0x30);           // SEQUENCE
-			this.#readLen();
-
-			// modulus (INTEGER)
-			this.#expect(0x02);
-			let nLen = this.#readLen();
-			let nStart = this.#offset;
-			this.#offset += nLen;
-
-			// exponent (INTEGER)
-			this.#expect(0x02);
-			let eLen = this.#readLen();
-			let eStart = this.#offset;
-			this.#offset += eLen;
-
-			// 先頭 0x00 は符号ビット用の場合があるので取り除く
-			while(nLen > 0 && this.#bytes[nStart] === 0x00){
-				nStart++;
-				nLen--;
-			}
-			while(eLen > 0 && this.#bytes[eStart] === 0x00){
-				eStart++;
-				eLen--;
-			}
-
-			// 元のバイト列からmodulus, exponentを切り出す
-			const n = this.#bytes.slice(nStart, nStart + nLen);
-			const e = this.#bytes.slice(eStart, eStart + eLen);
-
-			return {
-				name: "ssh-rsa",
-				n: n,
-				e: e
-			};
-		} finally {
-			this.#reset();
-		}
-	}
-
-	/**
-	 * Parses an ECDSA key in the SubjectPublicKeyInfo format, extracting the curve name
-	 * and public key point (Q) as used in the ECDSA algorithm.
-	 *
-	 * @return {Object} An object containing the parsed information:
-	 *  - `curveName`: The name of the curve in OpenSSH format (e.g., "nistp256").
-	 *  - `Q`: A Uint8Array representing the public key point (EC Point).
-	 * @throws {Error} If the input is not an EC public key, contains unexpected OIDs,
-	 *                 or unsupported EC curves are encountered.
-	 */
-	ecdsaSpki() {
-		try {
-			// SubjectPublicKeyInfo
-			this.#expect(0x30);              // SEQUENCE
-			this.#readLen();                 // 全体長は使わない
-
-			// AlgorithmIdentifier
-			this.#expect(0x30);              // SEQUENCE
-			const algLen = this.#readLen();
-			const algEnd = this.#offset + algLen;
-
-			// id-ecPublicKeyのはず
-			const algOid = this.#readOidAsString();
-			if(algOid !== OID.ECDSA_SPKI){
-				throw new Error(`Not an EC public key (unexpected algorithm OID: ${algOid})`);
-			}
-
-			// 曲線OID
-			const curveOid = this.#readOidAsString();
-
-			// 残りはスキップ
-			this.#offset = algEnd;
-
-			// subjectPublicKey (BIT STRING)
-			this.#expect(0x03);
-			const bitStrLen = this.#readLen();
-			const unusedBits = this.#bytes[this.#offset++];  // たいてい 0
-			if(unusedBits !== 0){
-				throw new Error("Unexpected unused bits in EC public key");
-			}
-
-			// 残り全部が Q（EC Point）
-			const q = this.#bytes.slice(this.#offset, this.#offset + (bitStrLen - 1));
-
-			// OID → OpenSSHのcurve名にマップ
-			let curveName;
-			switch(curveOid){
-				case OID.NIST_P256: // secp256r1
-					curveName = "nistp256";
-					break;
-				case OID.NIST_P384: // secp384r1
-					curveName = "nistp384";
-					break;
-				case OID.NIST_P521: // secp521r1
-					curveName = "nistp521";
-					break;
-				default:
-					throw new Error(`Unsupported EC curve OID: ${curveOid}`);
-			}
-
-			return {
-				curveName: curveName,
-				Q: q
-			};
-		} finally {
-			this.#reset();
-		}
-	}
-
-	/**
-	 * Reads a length value from a byte array, interpreting the value based on the first byte.
-	 *
-	 * If the most significant bit (MSB) of the first byte is not set, the value of the first byte
-	 * directly represents the length. If the MSB is set, the remaining 7 bits of the first byte
-	 * indicate the number of subsequent bytes that represent the length in a big-endian manner.
-	 *
-	 * The function advances the offset position with each byte processed.
-	 *
-	 * @function
-	 * @returns {number} The decoded length value derived from the bytes at the current offset.
-	 */
-	#readLen() {
-		let len = this.#bytes[this.#offset++];
-		if(len & 0x80){
-			const nBytes = len & 0x7F;
-
-			len = 0;
-			for(let i = 0; i < nBytes; i++){
-				len = (len << 8) | this.#bytes[this.#offset++];
-			}
-		}
-
-		return len;
-	};
-
-	/**
-	 * Validates that the current byte from the input buffer matches the expected ASN.1 tag.
-	 * Increments the offset after reading the byte.
-	 *
-	 * @param {number} tag - The expected ASN.1 tag value to match.
-	 * @throws {Error} If the current byte does not match the expected tag value, an error is thrown with a message including the expected tag.
-	 */
-	#expect(tag) {
-		if(this.#bytes[this.#offset++] !== tag){
-			throw new Error(`Unexpected ASN.1 tag, expected 0x${tag.toString(16).padStart(2, '0')}`);
-		}
-	};
-
-	/**
-	 * Resets the internal state of the object by clearing the byte array and resetting the offset to zero.
-	 *
-	 * @return {void} Does not return a value.
-	 */
-	#reset() {
-		this.#bytes = new Uint8Array(0);
-		this.#offset = 0;
-	}
-
-	/**
-	 * Reads an Object Identifier (OID) from the byte stream and decodes it into its standard dot-separated string representation.
-	 *
-	 * The method processes the bytes from the stream, calculates the OID components (including using the special logic for the first two components),
-	 * and concatenates the values into a string format commonly used for OIDs.
-	 *
-	 * @return {string} The decoded OID as a dot-separated string.（1.2.840... の形式）
-	 */
-	#readOidAsString() {
-		this.#expect(0x06);
-		const len = this.#readLen();
-		const end = this.#offset + len;
-		const out = [];
-
-		// 先頭1byteは (first * 40 + second)
-		const first = this.#bytes[this.#offset++];
-		out.push(Math.floor(first / 40));
-		out.push(first % 40);
-
-		let value = 0;
-		while(this.#offset < end){
-			const b = this.#bytes[this.#offset++];
-			value = (value << 7) | (b & 0x7F);
-			if((b & 0x80) === 0){
-				out.push(value);
-				value = 0;
-			}
-		}
-
-		return out.join(".");
-	}
-}
 
 /**
  * Generates a SHA-256 fingerprint of the given data and converts it to a base64-encoded string without trailing equals signs.
@@ -765,7 +434,7 @@ const rfc4253 = {
 	 * @returns {Uint8Array} A new Uint8Array that contains the concatenated bytes of all input arrays.
 	 */
 	concatBytes: (...arrays) => {
-		const arr = [...arrays];
+		const arr = ((arrays.length === 1 && Array.isArray(arrays[0])) ? arrays : [...arrays]).filter((a) => a instanceof Uint8Array);
 		const len = arr.reduce((sum, a) => sum + a.length, 0);
 		const out = new Uint8Array(len);
 		let offset = 0;
@@ -1202,7 +871,7 @@ const bcryptKdf = (passphrase, rounds = 16, saltLen = 16, returnBufferLen = 32) 
 	const aeadKey   = new Uint8Array(returnBufferLen);
 
 	// bcrypt-pbkdf.pbkdf(pass, passlen, salt, saltlen, key, keylen, rounds)
-	window.bcryptPbkdf.pbkdf(
+	CdnApp.bcryptPbkdf.pbkdf(
 		passBytes,
 		passBytes.length,
 		saltBytes,
@@ -1392,7 +1061,7 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 
 	const rounds = 16;
 
-	let binary;
+	let material;
 
 	// ChaCha20-Poly1305
 	if(cipher === "cc20p1305"){
@@ -1401,7 +1070,7 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 
 		// 4. ChaCha20-Poly1305 で暗号化
 		const nonce = crypto.getRandomValues(new Uint8Array(12)); // RFC7539ではノンス(iv)長は12バイトを指定
-		const aead  = new window.chacha20poly1305(kdf.aeadKey); // AEAD (Authenticated Encryption with Associated Data)
+		const aead  = new CdnApp.Chacha20poly1305(kdf.aeadKey); // AEAD (Authenticated Encryption with Associated Data)
 		const aad   = new Uint8Array(0); // 現状AADに突っ込むものがないので空のまま
 
 		const sealed = new Uint8Array(plainBlob.length + 16); // ciphertext || tag (末尾16バイトがタグ) FIXME: 必ずpadding後に暗号化
@@ -1419,13 +1088,13 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 			rfc4253.writeUint32(rounds)         // uint32 rounds
 		);
 
-		binary = buildOpenSSHKeyV1({
+		material = {
 			cipherName:   "chacha20-poly1305@openssh.com", // FIXME: "@openssh.com"を落とすと即アウト。大文字小文字も区別される
 			kdfName:      "bcrypt",
 			kdfOptions,
 			publicBlob:   pubBlob,
 			encryptedBlob
-		});
+		};
 	}
 	// AES-256-CTR
 	else if(cipher === "aes256ctr"){
@@ -1462,18 +1131,20 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 			rfc4253.writeUint32(rounds)         // uint32 rounds
 		);
 
-		binary = buildOpenSSHKeyV1({
+		material = {
 			cipherName:   "aes256-ctr",
 			kdfName:      "bcrypt",
 			kdfOptions,
 			publicBlob:   pubBlob,
 			encryptedBlob
-		});
+		};
 	}
 	// その他
 	else{
 		throw new Error(`Unsupported cipher for OpenSSH-key-v1: ${cipher}`);
 	}
+
+	const binary = buildOpenSSHKeyV1(material);
 
 	return Helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
 }
@@ -1645,7 +1316,7 @@ async function generateKey(name, opt, onProgress) {
 		throw Error(`Invalid algorithm: ${name}`);
 	}
 
-	const comment = (opt.comment && opt.comment !== '') ? opt.comment : "";
+	const comment    = (opt.comment && opt.comment !== '') ? opt.comment : "";
 	const passphrase = (opt.passphrase && opt.passphrase !== '') ? opt.passphrase : null;
 	const encryption = (passphrase !== null) ? "aes256-cbc" : "none";
 
