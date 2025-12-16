@@ -47,6 +47,123 @@ const PEM_LABEL = {
 let keygenReduceNum = -1;
 
 /**
+ * A utility class providing helper functions for data encoding, string manipulation, and formatting.
+ */
+class Helper {
+	/**
+	 * Converts an iterable of numeric values into a hexadecimal string.
+	 *
+	 * The function takes an input array or iterable containing numeric values (such as bytes),
+	 * converts each value to its two-character hexadecimal representation (adding leading zeros
+	 * if necessary), and concatenates the results into a single string.
+	 *
+	 * @param {Iterable<number>} arr - An iterable of numeric values to be converted.
+	 * @returns {string} A concatenated hexadecimal string representing the numeric values.
+	 */
+	static hexPad(arr){
+		return [...arr].map((b) => b.toString(16).padStart(2, "0")).join("");
+	}
+
+	/**
+	 * Encodes a given string into its corresponding UTF-8 byte representation.
+	 *
+	 * @function
+	 * @param {string} s - The input string to be encoded.
+	 * @returns {Uint8Array} The UTF-8 encoded byte array of the input string.
+	 */
+	static toUtf8(s) {
+		return new TextEncoder().encode(s);
+	}
+
+	/**
+	 * Formats a given string by wrapping it to the specified width.
+	 * Breaks the string into lines not exceeding the provided width, appending a newline character
+	 * at the end of each line, except for the last one. Trims any trailing whitespace characters
+	 * from the resulting string.
+	 *
+	 * @param {string} str - The input string to be wrapped.
+	 * @param {number} [width=64] - The maximum width of a line before wrapping. Defaults to 64 if not provided.
+	 * @returns {string} The string formatted with line breaks.
+	 */
+	static stringWrap(str, width = 64) {
+		return str.replace(new RegExp(`(.{1,${width}})`, "g"), (match, grp1) => (grp1) ? `${grp1}\n` : "").trimEnd();
+	}
+
+	/**
+	 * Calculates the number of lines in a given string.
+	 *
+	 * This function splits the input string by newline characters ("\n") and counts the number of resulting segments,
+	 * effectively determining the number of lines in the input.
+	 *
+	 * @param {string} str - The input string to evaluate.
+	 * @returns {number} The number of lines in the input string.
+	 */
+	static lineCount(str) {
+		return str.split("\n").length;
+	}
+
+	/**
+	 * Converts an ArrayBuffer or TypedArray to a Base64-encoded string.
+	 *
+	 * @param {ArrayBuffer|TypedArray} buffer - The buffer or typed array that is to be converted to a Base64 string.
+	 * @returns {string} The Base64-encoded string representation of the input buffer.
+	 */
+	static toBase64(buffer) {
+		return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+	}
+
+	/**
+	 * Decodes a Base64-encoded string into a Uint8Array.
+	 *
+	 * @param {string} b64 - The Base64-encoded string to decode. This string should not include
+	 *                       characters that are invalid in Base64 encoding, such as newline or whitespace.
+	 * @returns {Uint8Array|null} Returns a Uint8Array representing the decoded binary data, or null if the input is not a valid string.
+	 */
+	static fromBase64(b64) {
+		if(typeof b64 !== 'string'){
+			return null;
+		}
+
+		let s = b64.replace(/\-/g, '+').replace(/_/g, '/');
+		while(s.length % 4 > 0){
+		s += "=";
+		}
+
+		const decoded = atob(s);
+		const buffer = new Uint8Array(decoded.length);
+		for(let i = 0; i < b64.length; i++){
+			buffer[i] = decoded.charCodeAt(i);
+		}
+
+		return buffer;
+	}
+
+	/**
+	 * Converts a given buffer to a PEM formatted string.
+	 *
+	 * @param {Buffer} buffer - The binary data to be encoded in PEM format.
+	 * @param {string} label - The label to include in the PEM header and footer (e.g., "PUBLIC KEY", "PRIVATE KEY").
+	 * @param {number} [wrapWidth=64] - The width of line wrapping for the base64 content; defaults to 64.
+	 * @param {string} [addLabel=""] - An optional additional prefix to the label,
+	 *                                   appended before the main label in the header and footer (e.g., "ENCRYPTED", "OPENSSH").
+	 * @returns {string} A PEM formatted string with the provided label and encoded data.
+	 */
+	static toPEM(buffer, label, wrapWidth = 64, addLabel = "") {
+		const base64 = Helper.stringWrap(Helper.toBase64(buffer), wrapWidth);
+
+		if(addLabel !== ""){
+			label = `${addLabel} ${label}`;
+		}
+
+		return [
+			`-----BEGIN ${label}-----`,
+			base64,
+			`-----END ${label}-----`
+		].join("\n");
+	}
+}
+
+/**
  * Represents a parser for decoding RSA and ECDSA SubjectPublicKeyInfo structures.
  * This class provides methods to extract relevant public key components such as
  * modulus, exponent, curve name, and EC points from their respective binary formats.
@@ -291,7 +408,7 @@ class Parser {
 async function makeFingerprint(blob) {
 	const digest = await crypto.subtle.digest("SHA-256", blob);
 
-	return helper.toBase64(digest)
+	return Helper.toBase64(digest)
 		// OpenSSH風に末尾の=を削る
 		.replace(/=+$/, "");
 }
@@ -317,7 +434,7 @@ async function makeRsaOpenSSHPubKey(spkiBuf) {
 
 	return {
 		raw: blob,
-		pubkey: helper.toBase64(blob),
+		pubkey: Helper.toBase64(blob),
 		fingerprint: await makeFingerprint(blob)
 	};
 }
@@ -343,7 +460,7 @@ async function makeEcdsaOpenSSHPubKey(spkiBuf) {
 
 	return {
 		raw: blob,
-		pubkey: helper.toBase64(blob),
+		pubkey: Helper.toBase64(blob),
 		fingerprint: await makeFingerprint(blob)
 	};
 }
@@ -360,14 +477,14 @@ async function makeEcdsaPrivateBlob(privateKey) {
 	const jwk = await crypto.subtle.exportKey("jwk", privateKey);
 
 	// ECDSAでは d だけ
-	const d = helper.fromBase64(jwk.d);
+	const d = Helper.fromBase64(jwk.d);
 
 	// Q点 (0x04 || xBytes || yBytes)
 	// Q.length = P-256: 65bytes(1+32+32), P-384: 97bytes, P-521: 133bytes
 	const Q = rfc4253.concatBytes(
 		Uint8Array.from([0x04]),
-		helper.fromBase64(jwk.x),
-		helper.fromBase64(jwk.y)
+		Helper.fromBase64(jwk.x),
+		Helper.fromBase64(jwk.y)
 	);
 
 	// PPKv3の`C.3.3: NIST EC keys`は`mpint(d)`だけ
@@ -376,120 +493,6 @@ async function makeEcdsaPrivateBlob(privateKey) {
 		Q: Q,
 	};
 }
-
-/**
- * A helper object providing utility methods for data transformation and encoding operations.
- *
- * @typedef {Object} helper
- * @property {function(Iterable<number>): string} hexPad Converts an iterable of numeric values into a hexadecimal string.
- * @property {function(string, number=): string} stringWrap Formats a given string by wrapping it to the specified width.
- * @property {function(ArrayBuffer|TypedArray): string} toBase64 Converts an ArrayBuffer or TypedArray to a Base64-encoded string.
- * @property {function(string): Uint8Array|null} fromBase64 Decodes a Base64-encoded string into a Uint8Array.
- * @property {function(Buffer, string): string} toPEM Converts a given buffer into a PEM formatted string.
- */
-const helper = {
-	/**
-	 * Converts an iterable of numeric values into a hexadecimal string.
-	 *
-	 * The function takes an input array or iterable containing numeric values (such as bytes),
-	 * converts each value to its two-character hexadecimal representation (adding leading zeros
-	 * if necessary), and concatenates the results into a single string.
-	 *
-	 * @param {Iterable<number>} arr - An iterable of numeric values to be converted.
-	 * @returns {string} A concatenated hexadecimal string representing the numeric values.
-	 */
-	hexPad: (arr) => [...arr].map((b) => b.toString(16).padStart(2, "0")).join(""),
-
-	/**
-	 * Encodes a given string into its corresponding UTF-8 byte representation.
-	 *
-	 * @function
-	 * @param {string} s - The input string to be encoded.
-	 * @returns {Uint8Array} The UTF-8 encoded byte array of the input string.
-	 */
-	toUtf8: (s) => new TextEncoder().encode(s),
-
-	/**
-	 * Formats a given string by wrapping it to the specified width.
-	 * Breaks the string into lines not exceeding the provided width, appending a newline character
-	 * at the end of each line, except for the last one. Trims any trailing whitespace characters
-	 * from the resulting string.
-	 *
-	 * @param {string} str - The input string to be wrapped.
-	 * @param {number} [width=64] - The maximum width of a line before wrapping. Defaults to 64 if not provided.
-	 * @returns {string} The string formatted with line breaks.
-	 */
-	stringWrap: (str, width = 64) => str.replace(new RegExp(`(.{1,${width}})`, "g"), (match, grp1) => (grp1) ? `${grp1}\n` : "").trimEnd(),
-
-	/**
-	 * Calculates the number of lines in a given string.
-	 *
-	 * This function splits the input string by newline characters ("\n") and counts the number of resulting segments,
-	 * effectively determining the number of lines in the input.
-	 *
-	 * @param {string} str - The input string to evaluate.
-	 * @returns {number} The number of lines in the input string.
-	 */
-	lineCount: (str) => str.split("\n").length,
-
-	/**
-	 * Converts an ArrayBuffer or TypedArray to a Base64-encoded string.
-	 *
-	 * @param {ArrayBuffer|TypedArray} buffer - The buffer or typed array that is to be converted to a Base64 string.
-	 * @returns {string} The Base64-encoded string representation of the input buffer.
-	 */
-	toBase64: (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer))),
-
-	/**
-	 * Decodes a Base64-encoded string into a Uint8Array.
-	 *
-	 * @param {string} b64 - The Base64-encoded string to decode. This string should not include
-	 *                       characters that are invalid in Base64 encoding, such as newline or whitespace.
-	 * @returns {Uint8Array|null} Returns a Uint8Array representing the decoded binary data, or null if the input is not a valid string.
-	 */
-	fromBase64: (b64) => {
-		if(typeof b64 !== 'string'){
-			return null;
-		}
-
-		let s = b64.replace(/\-/g, '+').replace(/_/g, '/');
-		while(s.length % 4 > 0){
-			s += "=";
-		}
-
-		const decoded = atob(s);
-		const buffer = new Uint8Array(decoded.length);
-		for(let i = 0; i < b64.length; i++){
-			buffer[i] = decoded.charCodeAt(i);
-		}
-
-		return buffer;
-	},
-
-	/**
-	 * Converts a given buffer to a PEM formatted string.
-	 *
-	 * @param {Buffer} buffer - The binary data to be encoded in PEM format.
-	 * @param {string} label - The label to include in the PEM header and footer (e.g., "PUBLIC KEY", "PRIVATE KEY").
-	 * @param {number} [wrapWidth=64] - The width of line wrapping for the base64 content; defaults to 64.
-	 * @param {string} [addLabel=""] - An optional additional prefix to the label,
-	 *                                   appended before the main label in the header and footer (e.g., "ENCRYPTED", "OPENSSH").
-	 * @returns {string} A PEM formatted string with the provided label and encoded data.
-	 */
-	toPEM: (buffer, label, wrapWidth = 64, addLabel = "") => {
-		const base64 = helper.stringWrap(helper.toBase64(buffer), wrapWidth);
-
-		if(addLabel !== ""){
-			label = `${addLabel} ${label}`;
-		}
-
-		return [
-			`-----BEGIN ${label}-----`,
-			base64
-			,`-----END ${label}-----`
-		].join("\n");
-	}
-};
 
 /**
  * A utility object for encoding data into DER (Distinguished Encoding Rules) format (RFC8018),
@@ -717,7 +720,7 @@ const rfc4253 = {
 	 * @returns {Uint8Array} A byte array containing the string length as a 4-byte unsigned integer
 	 *                       followed by the UTF-8 encoded representation of the string.
 	 */
-	writeString: (str) => rfc4253.writer(helper.toUtf8(str)),
+	writeString: (str) => rfc4253.writer(Helper.toUtf8(str)),
 
 	/**
 	 * Converts the given input into a Uint8Array, calculates its length, and returns a new Uint8Array
@@ -802,7 +805,7 @@ const forPPK = {
 			throw new Error("argon2-browser is required for deriveKeys");
 		}
 
-		const passBytes = helper.toUtf8(passphrase);
+		const passBytes = Helper.toUtf8(passphrase);
 
 		// PuTTYっぽいデフォルト値 (サンプルでもよく使用される値)
 		const memory      = 8192; // KiB
@@ -870,7 +873,7 @@ const forPPK = {
 		const sig = await crypto.subtle.sign("HMAC", key, macInput);
 		const mac = new Uint8Array(sig);
 
-		return helper.hexPad(mac);
+		return Helper.hexPad(mac);
 	},
 
 	/**
@@ -886,15 +889,15 @@ const forPPK = {
 	 * @returns {Promise<string>} A string representing the complete contents of the PPK file.
 	 */
 	makeRsaPpkV3: async (algorithmName, keyPair, comment, pubBlob, encryption = "none", passphrase = "") => {
-		const pubB64 = helper.toBase64(pubBlob);
+		const pubB64 = Helper.toBase64(pubBlob);
 
 		const jwk = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
 
 		// PPKv3のRSAでは d, p, q, qinv
-		const d  = helper.fromBase64(jwk.d);
-		const p  = helper.fromBase64(jwk.p);
-		const q  = helper.fromBase64(jwk.q);
-		const qi = helper.fromBase64(jwk.qi); // qinv (q⁻¹ mod p)
+		const d  = Helper.fromBase64(jwk.d);
+		const p  = Helper.fromBase64(jwk.p);
+		const q  = Helper.fromBase64(jwk.q);
+		const qi = Helper.fromBase64(jwk.qi); // qinv (q⁻¹ mod p)
 
 		// 平文の秘密鍵blob
 		const privPlain = rfc4253.concatBytes(
@@ -933,11 +936,11 @@ const forPPK = {
 			throw new Error(`Unsupported encryption: ${encryption}`);
 		}
 
-		const privB64      = helper.toBase64(privOut);
-		const pubLines     = helper.stringWrap(pubB64);
-		const privLines    = helper.stringWrap(privB64);
-		const pubLineCount = helper.lineCount(pubLines);
-		const prvLineCount = helper.lineCount(privLines);
+		const privB64      = Helper.toBase64(privOut);
+		const pubLines     = Helper.stringWrap(pubB64);
+		const privLines    = Helper.stringWrap(privB64);
+		const pubLineCount = Helper.lineCount(pubLines);
+		const prvLineCount = Helper.lineCount(privLines);
 
 		// MACは常に「平文＋パディング側」を入力にする！
 		const macHex = await forPPK.computeMac(
@@ -976,7 +979,7 @@ const forPPK = {
 	 * @returns {Promise<string>} A string representing the complete contents of the PPK file.
 	 */
 	makeEcdsaPpkV3: async (algorithmName, keyPair, comment, pubBlob, encryption = "none", passphrase = "") => {
-		const pubB64 = helper.toBase64(pubBlob);
+		const pubB64 = Helper.toBase64(pubBlob);
 
 		// 平文の秘密鍵blob
 		const priv = await makeEcdsaPrivateBlob(keyPair.privateKey);
@@ -1011,11 +1014,11 @@ const forPPK = {
 			throw new Error(`Unsupported encryption: ${encryption}`);
 		}
 
-		const privB64      = helper.toBase64(privOut);
-		const pubLines     = helper.stringWrap(pubB64);
-		const privLines    = helper.stringWrap(privB64);
-		const pubLineCount = helper.lineCount(pubLines);
-		const prvLineCount = helper.lineCount(privLines);
+		const privB64      = Helper.toBase64(privOut);
+		const pubLines     = Helper.stringWrap(pubB64);
+		const privLines    = Helper.stringWrap(privB64);
+		const pubLineCount = Helper.lineCount(pubLines);
+		const prvLineCount = Helper.lineCount(privLines);
 
 		// MACは常に「平文＋パディング側」を入力にする！
 		const macHex = await forPPK.computeMac(
@@ -1072,7 +1075,7 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	const iv   = crypto.getRandomValues(new Uint8Array(16));
 
 	// ---- PBKDF2でAES-256キーを導出 (PBKDF2-HMAC-SHA256)
-	const baseKey = await crypto.subtle.importKey("raw", helper.toUtf8(passphrase), "PBKDF2", false, ["deriveKey"]);
+	const baseKey = await crypto.subtle.importKey("raw", Helper.toUtf8(passphrase), "PBKDF2", false, ["deriveKey"]);
 	const aesKey = await crypto.subtle.deriveKey(
 		{ name: "PBKDF2", salt, iterations, hash },
 		baseKey,
@@ -1193,7 +1196,7 @@ const bcryptKdf = (passphrase, rounds = 16, saltLen = 16, returnBufferLen = 32) 
 		throw new Error("Empty passphrase");
 	}
 
-	const passBytes = helper.toUtf8(passphrase);
+	const passBytes = Helper.toUtf8(passphrase);
 	const saltBytes = crypto.getRandomValues(new Uint8Array(saltLen));
 //	const saltBytes = Uint8Array.from("7a7bf56b8e4d248241475b6cd16324a5".match(/.{2}/g).map((h) => parseInt(h, 16)));
 	const aeadKey   = new Uint8Array(returnBufferLen);
@@ -1290,7 +1293,7 @@ function buildOpenSSHKeyV1({ cipherName, kdfName, kdfOptions, publicBlob, encryp
 	 */
 
 	const magic = rfc4253.concatBytes(
-		helper.toUtf8("openssh-key-v1"),
+		Helper.toUtf8("openssh-key-v1"),
 		new Uint8Array([0x00])
 	);
 
@@ -1335,12 +1338,12 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 		const jwk = await crypto.subtle.exportKey("jwk", keyInfo.private);
 
 		// FIXME: openssh-key-v1のRSAでは n, e, d, qi, p, q の順序が必須
-		const n  = helper.fromBase64(jwk.n);
-		const e  = helper.fromBase64(jwk.e);
-		const d  = helper.fromBase64(jwk.d);
-		const qi = helper.fromBase64(jwk.qi); // qinv (q⁻¹ mod p)
-		const p  = helper.fromBase64(jwk.p);
-		const q  = helper.fromBase64(jwk.q);
+		const n  = Helper.fromBase64(jwk.n);
+		const e  = Helper.fromBase64(jwk.e);
+		const d  = Helper.fromBase64(jwk.d);
+		const qi = Helper.fromBase64(jwk.qi); // qinv (q⁻¹ mod p)
+		const p  = Helper.fromBase64(jwk.p);
+		const q  = Helper.fromBase64(jwk.q);
 
 		privBlob = rfc4253.concatBytes(
 			rfc4253.writeMpint(n),
@@ -1384,7 +1387,7 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 			encryptedBlob: plainBlob
 		});
 
-		return helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
+		return Helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
 	}
 
 	const rounds = 16;
@@ -1472,7 +1475,7 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 		throw new Error(`Unsupported cipher for OpenSSH-key-v1: ${cipher}`);
 	}
 
-	return helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
+	return Helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
 }
 
 /**
@@ -1588,7 +1591,7 @@ const argon2KeyDerivation = async (passphrase, paddedPrivkey) => {
 		`Argon2-Memory: ${ar2.mem}`,
 		`Argon2-Passes: ${ar2.pass}`,
 		`Argon2-Parallelism: ${ar2.parallel}`,
-		`Argon2-Salt: ${helper.hexPad(ar2.salt)}`
+		`Argon2-Salt: ${Helper.hexPad(ar2.salt)}`
 	].join("\n");
 
 	return { privOut, macKey, kdLines };
