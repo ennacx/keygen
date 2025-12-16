@@ -5,31 +5,18 @@ export class PPKv3 {
 	 * @async
 	 * @static
 	 * @param {string} algorithmName - The name of the encryption algorithm to be used (e.g., ssh-rsa).
-	 * @param {CryptoKeyPair} keyPair - An object containing the RSA key pair. It must include the private key.
+	 * @param {KeyMaterial} keyMaterial - An object containing the RSA key pair. It must include the private key.
 	 * @param {string} comment - A textual comment to include in the PPK file.
 	 * @param {Uint8Array} pubBlob - RSA public key.
 	 * @param {string} [encryption="none"] - Specifies the encryption type for the private key. Defaults to "none".
 	 * @param {string} [passphrase=""] - Specifies the passphrase. Defaults to "".
 	 * @returns {Promise<string>} A string representing the complete contents of the PPK file.
 	 */
-	static async makeRsaPpkV3(algorithmName, keyPair, comment, pubBlob, encryption = "none", passphrase = "") {
+	static async makeRsaPpkV3(algorithmName, keyMaterial, comment, pubBlob, encryption = "none", passphrase = "") {
 		const pubB64 = App.Bytes.toBase64(pubBlob);
 
-		const jwk = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
-
-		// PPKv3のRSAでは d, p, q, qinv
-		const d  = App.Bytes.fromBase64(jwk.d);
-		const p  = App.Bytes.fromBase64(jwk.p);
-		const q  = App.Bytes.fromBase64(jwk.q);
-		const qi = App.Bytes.fromBase64(jwk.qi); // qinv (q⁻¹ mod p)
-
 		// 平文の秘密鍵blob
-		const privPlain = App.Bytes.concat(
-			rfc4253.writeMpint(d),
-			rfc4253.writeMpint(p),
-			rfc4253.writeMpint(q),
-			rfc4253.writeMpint(qi),
-		);
+		const privPlain = keyMaterial.rsaPrivatePartPPKv3();
 
 		// ランダムパディング込みの秘密鍵
 		const privPadded = addRandomPadding(privPlain, 16);
@@ -96,19 +83,18 @@ export class PPKv3 {
 	 * @async
 	 * @static
 	 * @param {string} algorithmName - The name of the encryption algorithm to be used (e.g., ecdsa-sha2-nistp2256).
-	 * @param {CryptoKeyPair} keyPair - An object containing the ECDSA key pair. It must include the private key.
+	 * @param {KeyMaterial} keyMaterial - An object containing the ECDSA key pair. It must include the private key.
 	 * @param {string} comment - A textual comment to include in the PPK file.
 	 * @param {Uint8Array} pubBlob - ECDSA public key.
 	 * @param {string} [encryption="none"] - Specifies the encryption type for the private key. Defaults to "none".
 	 * @param {string} [passphrase=""] - Specifies the passphrase. Defaults to "".
 	 * @returns {Promise<string>} A string representing the complete contents of the PPK file.
 	 */
-	static async makeEcdsaPpkV3(algorithmName, keyPair, comment, pubBlob, encryption = "none", passphrase = "") {
+	static async makeEcdsaPpkV3(algorithmName, keyMaterial, comment, pubBlob, encryption = "none", passphrase = "") {
 		const pubB64 = App.Bytes.toBase64(pubBlob);
 
 		// 平文の秘密鍵blob
-		const priv = await makeEcdsaPrivateBlob(keyPair.privateKey);
-		const privPlain = priv.d;
+		const privPlain = keyMaterial.ecdsaPrivatePart();
 		// ランダムパディング込みの秘密鍵
 		const privPadded = addRandomPadding(privPlain, 16);
 

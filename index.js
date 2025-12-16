@@ -236,11 +236,11 @@ $(() => {
 			opt.passphrase = passphrase;
 		}
 
-		try {
+		// try {
 			const result = await generateKey(al, opt, progress);
 
 			// 公開PEM
-			const publicPEM  = App.Helper.toPEM(result.public, PEM_LABEL.publicKey, 64);
+			const publicPEM  = App.Helper.toPEM(result.material.spki, PEM_LABEL.publicKey, 64);
 
 			// 秘密PEM
 			let privatePEM;
@@ -248,7 +248,7 @@ $(() => {
 				switch(encType){
 					case 'pkcs8':
 						if(opt.passphrase && opt.passphrase !== ""){
-							const { der } = await encryptPkcs8WithPBES2(result.private, opt.passphrase, { iterations: 100_000 });
+							const { der } = await encryptPkcs8WithPBES2(result.material.pkcs8, opt.passphrase, { iterations: 100_000 });
 							privatePEM = App.Helper.toPEM(der, PEM_LABEL.privateKey, 64, PEM_LABEL.encryptedAdd);
 						} else{
 							throw new Error("Passphrase is required for PKCS#8 encryption.");
@@ -262,7 +262,7 @@ $(() => {
 						privatePEM = await makeOpenSSHPrivateKeyV1(
 							cipher,
 							opt.prefix,
-							{ public: result.public, private: result.raw.privateKey },
+							result.material,
 							opt.passphrase || "",
 							opt.comment
 						);
@@ -290,8 +290,8 @@ $(() => {
 			} else{
 				$('#dlPrivPpk').prop('disabled', true);
 			}
-		} catch(e){
-			$errorAlert.text(e.message).show();
-		}
+		// } catch(e){
+		// 	$errorAlert.text(e.message).show();
+		// }
 	});
 })

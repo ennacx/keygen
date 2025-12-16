@@ -28,6 +28,23 @@ const OID = {
 };
 
 /**
+ * An object representing PEM (Privacy Enhanced Mail) labels used for identifying
+ * different types of keys and formats in PEM encoded data.
+ *
+ * Properties:
+ * - `publicKey`: The label for a public key in PEM format.
+ * - `privateKey`: The label for a private key in PEM format.
+ * - `opensshAdd`: The label indicating an OpenSSH formatted key or data.
+ * - `encryptedAdd`: The label indicating that the data is encrypted.
+ */
+const PEM_LABEL = {
+	publicKey:    "PUBLIC KEY",
+	privateKey:   "PRIVATE KEY",
+	opensshAdd:   "OPENSSH",
+	encryptedAdd: "ENCRYPTED"
+};
+
+/**
  * Helper variable serves as the reference to the `App.Helper` module or object,
  * providing access to various utility functions, constants, and methods that
  * support the application in performing helper operations.
@@ -60,24 +77,14 @@ const Parser = App.Parser;
  */
 const rfc4253 = App.RFC4253;
 
-/**
- * An object representing PEM (Privacy Enhanced Mail) labels used for identifying
- * different types of keys and formats in PEM encoded data.
- *
- * Properties:
- * - `publicKey`: The label for a public key in PEM format.
- * - `privateKey`: The label for a private key in PEM format.
- * - `opensshAdd`: The label indicating an OpenSSH formatted key or data.
- * - `encryptedAdd`: The label indicating that the data is encrypted.
- */
-const PEM_LABEL = {
-	publicKey:    "PUBLIC KEY",
-	privateKey:   "PRIVATE KEY",
-	opensshAdd:   "OPENSSH",
-	encryptedAdd: "ENCRYPTED"
-};
-
 let keygenReduceNum = -1;
+
+/**
+ * Represents the cryptographic key material used in encryption and decryption processes.
+ * This variable typically holds data required for performing cryptographic key operations
+ * such as generating, importing, or using keys for secure data storage or transmission.
+ */
+let keyMaterial;
 
 /**
  * Generates a SHA-256 fingerprint of the given data and converts it to a base64-encoded string without trailing equals signs.
@@ -147,216 +154,6 @@ async function makeEcdsaOpenSSHPubKey(spkiBuf) {
 }
 
 /**
- * Generates an ECDSA private key blob using the provided private key.
- *
- * @param {CryptoKey} privateKey - The ECDSA private key to be exported and converted.
- * @return {Promise<Object>} An object containing:
- * - d: The private scalar (mpint encoded) derived from the private key.
- * - Q: The concatenated public key point in uncompressed form.
- */
-async function makeEcdsaPrivateBlob(privateKey) {
-	const jwk = await crypto.subtle.exportKey("jwk", privateKey);
-
-	// ECDSAでは d だけ
-	const d = App.Bytes.fromBase64(jwk.d);
-
-	// Q点 (0x04 || xBytes || yBytes)
-	// Q.length = P-256: 65bytes(1+32+32), P-384: 97bytes, P-521: 133bytes
-	const Q = App.Bytes.concat(
-		Uint8Array.from([0x04]),
-		App.Bytes.fromBase64(jwk.x),
-		App.Bytes.fromBase64(jwk.y)
-	);
-
-	// PPKv3の`C.3.3: NIST EC keys`は`mpint(d)`だけ
-	return {
-		d: rfc4253.writeMpint(d),
-		Q: Q,
-	};
-}
-
-/**
- * A utility object for encoding data into DER (Distinguished Encoding Rules) format (RFC8018),
- * commonly used in PKCS8 cryptographic data structures. Contains functions for
- * creating various DER-encoded elements like sequences, integers, octet strings,
- * and object identifiers. Primarily utilized for constructing and managing cryptographic
- * data formats.
- *
- * @property {function(...Uint8Array): Uint8Array} derConcat Concatenates multiple Uint8Array instances into a single array.
- * @property {function(number): Uint8Array} derLen Encodes a given length into the DER length format.
- * @property {function(Uint8Array|Array|ArrayBuffer): Uint8Array} derSequence Constructs a DER-encoded sequence.
- * @property {function(Uint8Array|Array): Uint8Array} derOctetString Creates a DER-encoded Octet String from the input.
- * @property {function(number): Uint8Array} derInt Produces a DER-encoded representation of an integer.
- * @property {function(): Uint8Array} derNull Creates a DER Null object encoding.
- * @property {function(string): Uint8Array} derOid Encodes an Object Identifier (OID) string into DER format.
- */
-const pkcs8 = {
-	/**
-	 * Concatenates multiple Uint8Array arrays into a single Uint8Array.
-	 *
-	 * This function takes any number of Uint8Array instances as arguments,
-	 * calculates the total length, and creates a new Uint8Array to hold
-	 * the concatenated result. It iteratively copies each array into the
-	 * created output array.
-	 *
-	 * @param {...Uint8Array} arrays - One or more Uint8Array instances to concatenate.
-	 * @returns {Uint8Array} A new Uint8Array containing the concatenation of all input arrays.
-	 */
-	derConcat: (...arrays) => {
-		const len = arrays.reduce((n, a) => n + a.length, 0);
-		const out = new Uint8Array(len);
-		let off = 0;
-		for(const a of arrays){
-			out.set(a, off);
-			off += a.length;
-		}
-
-		return out;
-	},
-
-	/**
-	 * Generates DER-encoded length encoding for a given length.
-	 *
-	 * If the length is less than 128, it uses the short form encoding.
-	 * For lengths equal to or greater than 128, it employs the long form encoding.
-	 *
-	 * @param {number} len The length value to encode.
-	 * @returns {Uint8Array} A Uint8Array containing the DER-encoded length.
-	 * @throws {TypeError} Throws if the input length is not a number.
-	 */
-	derLen: (len) => {
-		if(len < 0x80){
-			return new Uint8Array([len]);
-		}
-
-		// long form
-		const bytes = [];
-		let v = len;
-		while(v > 0){
-			bytes.unshift(v & 0xFF);
-			v >>= 8;
-		}
-
-		return new Uint8Array([0x80 | bytes.length, ...bytes]);
-	},
-
-	/**
-	 * Constructs a DER (Distinguished Encoding Rules) encoded sequence.
-	 *
-	 * This function takes a content input, ensures it is of type Uint8Array,
-	 * and constructs a DER encoded sequence by concatenating a prefix byte (0x30),
-	 * the DER encoded length of the content, and the content itself.
-	 *
-	 * @param {Uint8Array|Array|ArrayBuffer} content - The content to be included in the DER sequence. If not a Uint8Array, it will be converted.
-	 * @returns {Uint8Array} - The resulting DER encoded sequence.
-	 */
-	derSequence: (content) => {
-		const c = (content instanceof Uint8Array) ? content : new Uint8Array(content);
-		return pkcs8.derConcat(new Uint8Array([0x30]), pkcs8.derLen(c.length), c);
-	},
-
-	/**
-	 * Encodes the given input bytes as a DER-encoded Octet String.
-	 *
-	 * The function takes an array of bytes, either as a regular array or a `Uint8Array`,
-	 * and constructs a DER-encoded Octet String. This involves adding the appropriate
-	 * identifier byte (0x04), a length indicator, and the byte content.
-	 *
-	 * @param {Uint8Array | Array} bytes - The input bytes to encode as a DER Octet String. If the input is not a `Uint8Array`, it will be converted into one.
-	 * @returns {Uint8Array} A new `Uint8Array` containing the DER-encoded Octet String representation of the input.
-	 */
-	derOctetString: (bytes) => {
-		const b = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes);
-		return pkcs8.derConcat(new Uint8Array([0x04]), pkcs8.derLen(b.length), b);
-	},
-
-	/**
-	 * Generates a DER-encoded integer representation of the given number. (`iterationCount / keyLength`用。32bitくらい想定)
-	 *
-	 * The function converts a number to its big-endian byte array representation.
-	 * Handles edge cases such as zero and ensures that the DER encoding rules
-	 * for signed integers are followed (e.g., avoids leading bits being misinterpreted
-	 * as a sign bit by adding a leading 0x00 byte if necessary).
-	 *
-	 * @param {number} num - The unsigned integer to be converted into DER format.
-	 * @returns {Uint8Array} The DER-encoded representation of the integer.
-	 */
-	derInt: (num) => {
-		if(num === 0){
-			return new Uint8Array([0x02, 0x01, 0x00]);
-		}
-
-		const bytes = [];
-		let v = num >>> 0;
-		while(v > 0){
-			bytes.unshift(v & 0xFF);
-			v >>>= 8;
-		}
-
-		// 先頭bitが1なら符号ビット回避のため0x00を追加
-		if(bytes[0] & 0x80){
-			bytes.unshift(0x00);
-		}
-
-		return pkcs8.derConcat(
-			new Uint8Array([0x02]),
-			pkcs8.derLen(bytes.length),
-			new Uint8Array(bytes)
-		);
-	},
-
-	/**
-	 * Creates and returns a new Uint8Array representing a DER Null object.
-	 * The DER Null object is encoded as a two-byte sequence with an object identifier of 0x05 and a zero-length content of 0x00.
-	 *
-	 * @returns {Uint8Array} A Uint8Array containing the DER Null encoding.
-	 */
-	derNull: () => new Uint8Array([0x05, 0x00]),
-
-	/**
-	 * Encodes an Object Identifier (OID e.g., 1.2.840.113549.1.5.13) string into its DER (Distinguished Encoding Rules) representation.
-	 *
-	 * This function converts an OID string of the format "x.y.z..." into its binary DER-encoded form.
-	 * The first two components (x and y) are encoded as `40 * x + y`, and subsequent components are encoded
-	 * using a base-128 representation where each byte has its highest bit set, except for the last byte.
-	 *
-	 * @param {string} oidStr - The OID string to be encoded, in the form "x.y.z...".
-	 * @throws {Error} If the input string has fewer than two components or contains invalid numeric values.
-	 * @returns {Uint8Array} A Uint8Array containing the DER-encoded representation of the OID.
-	 */
-	derOid: (oidStr) => {
-		const parts = oidStr.split('.').map((x) => parseInt(x, 10));
-		if(parts.length < 2){
-			throw new Error("Invalid OID");
-		}
-
-		const first = 40 * parts[0] + parts[1];
-		const body = [first];
-
-		for(let i = 2; i < parts.length; i++){
-			let v = parts[i];
-			const stack = [];
-			do {
-				stack.push(v & 0x7F);
-				v >>= 7;
-			} while(v > 0);
-
-			for(let j = stack.length - 1; j >= 0; j--){
-				let b = stack[j];
-				if(j !== 0){
-					b |= 0x80;
-				}
-
-				body.push(b);
-			}
-		}
-
-		const b = new Uint8Array(body);
-		return pkcs8.derConcat(new Uint8Array([0x06]), pkcs8.derLen(b.length), b);
-	}
-};
-
-/**
  * Encrypts a PKCS#8 private key buffer using PBES2 with PBKDF2 and AES-256-CBC.
  *
  * @async
@@ -401,10 +198,10 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	// ====== ここから ASN.1 (Abstract Syntax Notation 1) 組み立て ======
 
 	// PRF AlgorithmIdentifier (hmacWithSHA256, NULL)
-	const prfAlgId = pkcs8.derSequence(
-		pkcs8.derConcat(
-			pkcs8.derOid(OID.HMAC_SHA256),
-			pkcs8.derNull()
+	const prfAlgId = App.PKCS8withPBES2.derSequence(
+		App.PKCS8withPBES2.derConcat(
+			App.PKCS8withPBES2.derOid(OID.HMAC_SHA256),
+			App.PKCS8withPBES2.derNull()
 		)
 	);
 
@@ -416,28 +213,28 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	 *   prf AlgorithmIdentifier DEFAULT
 	 * }
 	 */
-	const pbkdf2Params = pkcs8.derSequence(
-		pkcs8.derConcat(
-			pkcs8.derOctetString(salt),
-			pkcs8.derInt(iterations),
-			pkcs8.derInt(keyLength),
+	const pbkdf2Params = App.PKCS8withPBES2.derSequence(
+		App.PKCS8withPBES2.derConcat(
+			App.PKCS8withPBES2.derOctetString(salt),
+			App.PKCS8withPBES2.derInt(iterations),
+			App.PKCS8withPBES2.derInt(keyLength),
 			prfAlgId
 		)
 	);
 
 	// KeyDerivationFunction AlgorithmIdentifier (PBKDF2)
-	const kdfAlgId = pkcs8.derSequence(
-		pkcs8.derConcat(
-			pkcs8.derOid(OID.PBKDF2),
+	const kdfAlgId = App.PKCS8withPBES2.derSequence(
+		App.PKCS8withPBES2.derConcat(
+			App.PKCS8withPBES2.derOid(OID.PBKDF2),
 			pbkdf2Params
 		)
 	);
 
 	// EncryptionScheme AlgorithmIdentifier (AES-256-CBC, params=IV)
-	const encSchemeAlgId = pkcs8.derSequence(
-		pkcs8.derConcat(
-			pkcs8.derOid(OID.AES256_CBC),
-			pkcs8.derOctetString(iv)
+	const encSchemeAlgId = App.PKCS8withPBES2.derSequence(
+		App.PKCS8withPBES2.derConcat(
+			App.PKCS8withPBES2.derOid(OID.AES256_CBC),
+			App.PKCS8withPBES2.derOctetString(iv)
 		)
 	);
 
@@ -447,23 +244,23 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	 *   encryptionScheme
 	 * }
 	 */
-	const pbes2Params = pkcs8.derSequence(
-		pkcs8.derConcat(
+	const pbes2Params = App.PKCS8withPBES2.derSequence(
+		App.PKCS8withPBES2.derConcat(
 			kdfAlgId,
 			encSchemeAlgId
 		)
 	);
 
 	// encryptionAlgorithm AlgorithmIdentifier (PBES2 + params)
-	const encryptionAlgorithm = pkcs8.derSequence(
-		pkcs8.derConcat(
-			pkcs8.derOid(OID.PBES2),
+	const encryptionAlgorithm = App.PKCS8withPBES2.derSequence(
+		App.PKCS8withPBES2.derConcat(
+			App.PKCS8withPBES2.derOid(OID.PBES2),
 			pbes2Params
 		)
 	);
 
 	// encryptedData OCTET STRING
-	const encryptedData = pkcs8.derOctetString(ciphertext);
+	const encryptedData = App.PKCS8withPBES2.derOctetString(ciphertext);
 
 	/*
 	 * EncryptedPrivateKeyInfo ::= SEQUENCE {
@@ -471,8 +268,8 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	 *   encryptedData
 	 * }
 	 */
-	const encryptedPrivateKeyInfo = pkcs8.derSequence(
-		pkcs8.derConcat(
+	const encryptedPrivateKeyInfo = App.PKCS8withPBES2.derSequence(
+		App.PKCS8withPBES2.derConcat(
 			encryptionAlgorithm,
 			encryptedData
 		)
@@ -509,7 +306,7 @@ const bcryptKdf = (passphrase, rounds = 16, saltLen = 16, returnBufferLen = 32) 
 
 	const passBytes = Helper.toUtf8(passphrase);
 	const saltBytes = crypto.getRandomValues(new Uint8Array(saltLen));
-//	const saltBytes = Uint8Array.from("7a7bf56b8e4d248241475b6cd16324a5".match(/.{2}/g).map((h) => parseInt(h, 16)));
+//	const saltBytes = Uint8Array.from("1234567890abcdef1234567890abcdef".match(/.{2}/g).map((h) => parseInt(h, 16))); // salt固定のテスト用
 	const aeadKey   = new Uint8Array(returnBufferLen);
 
 	// bcrypt-pbkdf.pbkdf(pass, passlen, salt, saltlen, key, keylen, rounds)
@@ -626,15 +423,12 @@ function buildOpenSSHKeyV1({ cipherName, kdfName, kdfOptions, publicBlob, encryp
  * @async
  * @param {string} cipher - The encryption cipher for securing the private key (e.g., "aes256ctr", "cc20p1305").
  * @param {string} keyType - The type of key to generate, such as "ssh-rsa" or "ecdsa-sha2-<curve-name>".
- * @param {Object} keyInfo - The key information containing the public and private key components.
- * @param {string} [keyInfo.public] - The public key component.
- * @param {string} [keyInfo.private] - The private key component.
  * @param {string} [passphrase] - An optional passphrase to encrypt the private key. If not provided, the key will be unencrypted.
  * @param {string} [comment] - An optional comment to include in the private key.
  * @return {Promise<string>} A Promise that resolves to the OpenSSH private key in PEM (Base64-encoded) format.
  * @throws {Error} If an unsupported key type is provided.
  */
-async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, comment) {
+async function makeOpenSSHPrivateKeyV1(cipher, keyType, passphrase, comment) {
 	// 1. 公開鍵blobと秘密フィールドblobを作る
 	let pubBlob;
 	let privBlob;
@@ -643,36 +437,17 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 
 	// RSA
 	if(keyType === "ssh-rsa"){
-		const rsa = await makeRsaOpenSSHPubKey(keyInfo.public); // SPKI → OpenSSH blob
+		const rsa = await makeRsaOpenSSHPubKey(keyMaterial.spki); // SPKI → OpenSSH blob
 		pubBlob   = rsa.raw;
-
-		const jwk = await crypto.subtle.exportKey("jwk", keyInfo.private);
-
-		// FIXME: openssh-key-v1のRSAでは n, e, d, qi, p, q の順序が必須
-		const n  = App.Bytes.fromBase64(jwk.n);
-		const e  = App.Bytes.fromBase64(jwk.e);
-		const d  = App.Bytes.fromBase64(jwk.d);
-		const qi = App.Bytes.fromBase64(jwk.qi); // qinv (q⁻¹ mod p)
-		const p  = App.Bytes.fromBase64(jwk.p);
-		const q  = App.Bytes.fromBase64(jwk.q);
-
-		privBlob = App.Bytes.concat(
-			rfc4253.writeMpint(n),
-			rfc4253.writeMpint(e),
-			rfc4253.writeMpint(d),
-			rfc4253.writeMpint(qi),
-			rfc4253.writeMpint(p),
-			rfc4253.writeMpint(q)
-		);
+		privBlob = keyMaterial.rsaPrivatePart();
 	}
 	// ECDSA
 	else if(keyType.startsWith("ecdsa-sha2-")){
-		const ecdsa = await makeEcdsaOpenSSHPubKey(keyInfo.public);
+		const ecdsa = await makeEcdsaOpenSSHPubKey(keyMaterial.spki);
 		pubBlob     = ecdsa.raw;
 
-		const priv = await makeEcdsaPrivateBlob(keyInfo.private);
-		privBlob = priv.d;
-		opt.Q = priv.Q;
+		privBlob = keyMaterial.ecdsaPrivatePart();
+		opt.Q = keyMaterial.ecdsaQPoint();
 	}
 	// 不正
 	else{
@@ -688,25 +463,22 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 		opt
 	);
 
+	const rounds = 16;
+
+	let buildMaterial;
+
 	// パスフレーズ無しなら暗号化せずにそのまま入れる
 	if(!passphrase){
-		const binary = buildOpenSSHKeyV1({
+		buildMaterial = {
 			cipherName:    "none",
 			kdfName:       "none",
 			kdfOptions:    new Uint8Array(0),
 			publicBlob:    pubBlob,
 			encryptedBlob: plainBlob
-		});
-
-		return Helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
+		};
 	}
-
-	const rounds = 16;
-
-	let material;
-
 	// ChaCha20-Poly1305
-	if(cipher === "cc20p1305"){
+	else if(cipher === "cc20p1305"){
 		// 3. bcrypt-pbkdfでAEADキー導出
 		const kdf = bcryptKdf(passphrase, rounds, 16, 32);
 
@@ -730,7 +502,7 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 			rfc4253.writeUint32(rounds)         // uint32 rounds
 		);
 
-		material = {
+		buildMaterial = {
 			cipherName:   "chacha20-poly1305@openssh.com", // FIXME: "@openssh.com"を落とすと即アウト。大文字小文字も区別される
 			kdfName:      "bcrypt",
 			kdfOptions,
@@ -773,7 +545,7 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 			rfc4253.writeUint32(rounds)         // uint32 rounds
 		);
 
-		material = {
+		buildMaterial = {
 			cipherName:   "aes256-ctr",
 			kdfName:      "bcrypt",
 			kdfOptions,
@@ -786,7 +558,7 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, keyInfo, passphrase, com
 		throw new Error(`Unsupported cipher for OpenSSH-key-v1: ${cipher}`);
 	}
 
-	const binary = buildOpenSSHKeyV1(material);
+	const binary = buildOpenSSHKeyV1(buildMaterial);
 
 	return Helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
 }
@@ -892,37 +664,11 @@ const aesCbcEncryptRawNoPadding = (keyBytes, ivBytes, plaintext) => {
  * @throws {Error} If an invalid algorithm name is provided, or if key generation fails.
  */
 async function generateKey(name, opt, onProgress) {
-	let algo;
-	let keyUsage;
-	switch(name){
-		case 'RSA':
-			algo = {
-				name: "RSA-PSS",
-				modulusLength: opt.len,
-				publicExponent: new Uint8Array([1, 0, 1]),
-				hash: "SHA-256"
-			};
-			keyUsage = ["sign", "verify"];
-			break;
-
-		case 'ECDSA':
-			algo = {
-				name: name,
-				namedCurve: opt.nist
-			};
-			keyUsage = ["sign", "verify"];
-			break;
-	}
-
-	if(!algo){
-		throw Error(`Invalid algorithm: ${name}`);
-	}
-
 	const comment    = (opt.comment && opt.comment !== '') ? opt.comment : "";
 	const passphrase = (opt.passphrase && opt.passphrase !== '') ? opt.passphrase : null;
 	const encryption = (passphrase !== null) ? "aes256-cbc" : "none";
 
-	let keyPair;
+	const kmCallback = async () => KeyMaterial.getInstance(name, { len: opt.len, curve: opt.nist });
 	if(keygenReduceNum >= 0){
 		const count = 7;
 		let done = 0;
@@ -935,26 +681,21 @@ async function generateKey(name, opt, onProgress) {
 				return result;
 			});
 
-		const pairBuffer = await Promise.all(
+		const kmBuffer = await Promise.all(
 			Array.from(
 				{ length: count },
-				() => wrapWithProgress(crypto.subtle.generateKey(algo, true, keyUsage))
+				() => wrapWithProgress(kmCallback())
 			)
 		);
 
-		keyPair = pairBuffer[keygenReduceNum % count];
+		keyMaterial = kmBuffer[keygenReduceNum % count];
 	} else{
-		keyPair = await crypto.subtle.generateKey(algo, true, keyUsage)
+		keyMaterial = await kmCallback();
 
 		if(typeof onProgress === 'function'){
 			onProgress(1, 1);
 		}
 	}
-
-	// 公開DER
-	const spki = await crypto.subtle.exportKey("spki", keyPair.publicKey);
-	// 秘密DER
-	const pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
 
 	const makeOpenSshPubKey = (opt, pubkey, comment) =>
 		`${opt.prefix} ${pubkey}` + ((comment !== undefined && comment !== '') ? ` ${comment}` : "");
@@ -965,26 +706,24 @@ async function generateKey(name, opt, onProgress) {
 	let ppk;
 	switch(name){
 		case "RSA":
-			const rsaOpenssh = await makeRsaOpenSSHPubKey(spki);
+			const rsaOpenssh = await makeRsaOpenSSHPubKey(keyMaterial.spki);
 
 			opensshPubkey = makeOpenSshPubKey(opt, rsaOpenssh.pubkey, comment);
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${rsaOpenssh.fingerprint}`;
-			ppk = await App.PPKv3.makeRsaPpkV3(opt.prefix, keyPair, comment, rsaOpenssh.raw, encryption, passphrase);
+			ppk = await App.PPKv3.makeRsaPpkV3(opt.prefix, keyMaterial, comment, rsaOpenssh.raw, encryption, passphrase);
 			break;
 
 		case "ECDSA":
-			const ecdsaOpenssh = await makeEcdsaOpenSSHPubKey(spki);
+			const ecdsaOpenssh = await makeEcdsaOpenSSHPubKey(keyMaterial.spki);
 
 			opensshPubkey = makeOpenSshPubKey(opt, ecdsaOpenssh.pubkey, comment);
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${ecdsaOpenssh.fingerprint}`;
-			ppk = await App.PPKv3.makeEcdsaPpkV3(opt.prefix, keyPair, comment, ecdsaOpenssh.raw, encryption, passphrase);
+			ppk = await App.PPKv3.makeEcdsaPpkV3(opt.prefix, keyMaterial, comment, ecdsaOpenssh.raw, encryption, passphrase);
 			break;
 	}
 
 	return {
-		raw: keyPair,
-		public: spki,
-		private: pkcs8,
+		material: keyMaterial,
 		openssh: opensshPubkey,
 		ppk: ppk,
 		fingerprint: opensshFingerprint
