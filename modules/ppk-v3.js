@@ -64,7 +64,7 @@ export class PPKv3 {
 		);
 
 		// FIXME: 順番重要
-		return [
+		return App.Helper.implode([
 			`PuTTY-User-Key-File-3: ${algorithmName}`,
 			`Encryption: ${encryption}`,
 			`Comment: ${comment}`,
@@ -74,7 +74,7 @@ export class PPKv3 {
 			`Private-Lines: ${prvLineCount}`,
 			`${privLines}`,
 			`Private-MAC: ${macHex}`
-		].join("\n");
+		]);
 	}
 
 	/**
@@ -142,7 +142,7 @@ export class PPKv3 {
 		);
 
 		// FIXME: 順番重要
-		return [
+		return App.Helper.implode([
 			`PuTTY-User-Key-File-3: ${algorithmName}`,
 			`Encryption: ${encryption}`,
 			`Comment: ${comment}`,
@@ -152,7 +152,7 @@ export class PPKv3 {
 			`Private-Lines: ${prvLineCount}`,
 			`${privLines}`,
 			`Private-MAC: ${macHex}`
-		].join("\n");
+		]);
 	}
 
 	/**
@@ -239,13 +239,13 @@ export class PPKv3 {
 		const macKey  = ar2.mk;
 
 		// Key-Derivationヘッダの作成
-		const kdLines = [
+		const kdLines = App.Helper.implode([
 			`Key-Derivation: Argon2id`,
 			`Argon2-Memory: ${ar2.mem}`,
 			`Argon2-Passes: ${ar2.pass}`,
 			`Argon2-Parallelism: ${ar2.parallel}`,
 			`Argon2-Salt: ${Helper.hexPad(ar2.salt)}`
-		].join("\n");
+		]);
 
 		return { privOut, macKey, kdLines };
 	};

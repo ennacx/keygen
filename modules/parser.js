@@ -105,7 +105,7 @@ export class Parser {
 
 			// id-ecPublicKeyのはず
 			const algOid = this.#readOidAsString();
-			if(algOid !== OID.ECDSA_SPKI){
+			if(algOid !== App.Helper.OID.ECDSA_SPKI){
 				throw new Error(`Not an EC public key (unexpected algorithm OID: ${algOid})`);
 			}
 
@@ -129,13 +129,13 @@ export class Parser {
 			// OID → OpenSSHのcurve名にマップ
 			let curveName;
 			switch(curveOid){
-				case OID.NIST_P256: // secp256r1
+				case App.Helper.OID.NIST_P256: // secp256r1
 					curveName = "nistp256";
 					break;
-				case OID.NIST_P384: // secp384r1
+				case App.Helper.OID.NIST_P384: // secp384r1
 					curveName = "nistp384";
 					break;
-				case OID.NIST_P521: // secp521r1
+				case App.Helper.OID.NIST_P521: // secp521r1
 					curveName = "nistp521";
 					break;
 				default:

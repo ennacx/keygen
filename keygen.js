@@ -1,50 +1,4 @@
 /**
- * Object Identifier (OID) mapping for cryptographic algorithms and key types.
- *
- * This object provides a set of Object Identifiers (OIDs) representing
- * various standard cryptographic algorithms and related parameters.
- * These OIDs are used to identify specific cryptographic primitives
- * in protocols and data formats.
- *
- * Properties:
- * - `PBES2`: OID for Password-Based Encryption Scheme 2 (PBES2).
- * - `PBKDF2`: OID for Password-Based Key Derivation Function 2 (PBKDF2).
- * - `HMAC_SHA256`: OID for Hash-based Message Authentication Code (HMAC) using SHA-256.
- * - `AES256_CBC`: OID for AES encryption using 256-bit key in Cipher Block Chaining (CBC) mode.
- * - `ECDSA_SPKI`: OID for Elliptic Curve Digital Signature Algorithm (ECDSA) in Subject Public Key Info (SPKI) format.
- * - `NIST_P256`: OID for the NIST P-256 elliptic curve (also known as secp256r1).
- * - `NIST_P384`: OID for the NIST P-384 elliptic curve (also known as secp384r1).
- * - `NIST_P521`: OID for the NIST P-521 elliptic curve (also known as secp521r1).
- */
-const OID = {
-	PBES2:       "1.2.840.113549.1.5.13",
-	PBKDF2:      "1.2.840.113549.1.5.12",
-	HMAC_SHA256: "1.2.840.113549.2.9",
-	AES256_CBC:  "2.16.840.1.101.3.4.1.42",
-	ECDSA_SPKI:  "1.2.840.10045.2.1",
-	NIST_P256:   "1.2.840.10045.3.1.7",
-	NIST_P384:   "1.3.132.0.34",
-	NIST_P521:   "1.3.132.0.35"
-};
-
-/**
- * An object representing PEM (Privacy Enhanced Mail) labels used for identifying
- * different types of keys and formats in PEM encoded data.
- *
- * Properties:
- * - `publicKey`: The label for a public key in PEM format.
- * - `privateKey`: The label for a private key in PEM format.
- * - `opensshAdd`: The label indicating an OpenSSH formatted key or data.
- * - `encryptedAdd`: The label indicating that the data is encrypted.
- */
-const PEM_LABEL = {
-	publicKey:    "PUBLIC KEY",
-	privateKey:   "PRIVATE KEY",
-	opensshAdd:   "OPENSSH",
-	encryptedAdd: "ENCRYPTED"
-};
-
-/**
  * Helper variable serves as the reference to the `App.Helper` module or object,
  * providing access to various utility functions, constants, and methods that
  * support the application in performing helper operations.
@@ -200,7 +154,7 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	// PRF AlgorithmIdentifier (hmacWithSHA256, NULL)
 	const prfAlgId = App.PKCS8withPBES2.derSequence(
 		App.PKCS8withPBES2.derConcat(
-			App.PKCS8withPBES2.derOid(OID.HMAC_SHA256),
+			App.PKCS8withPBES2.derOid(Helper.OID.HMAC_SHA256),
 			App.PKCS8withPBES2.derNull()
 		)
 	);
@@ -225,7 +179,7 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	// KeyDerivationFunction AlgorithmIdentifier (PBKDF2)
 	const kdfAlgId = App.PKCS8withPBES2.derSequence(
 		App.PKCS8withPBES2.derConcat(
-			App.PKCS8withPBES2.derOid(OID.PBKDF2),
+			App.PKCS8withPBES2.derOid(Helper.OID.PBKDF2),
 			pbkdf2Params
 		)
 	);
@@ -233,7 +187,7 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	// EncryptionScheme AlgorithmIdentifier (AES-256-CBC, params=IV)
 	const encSchemeAlgId = App.PKCS8withPBES2.derSequence(
 		App.PKCS8withPBES2.derConcat(
-			App.PKCS8withPBES2.derOid(OID.AES256_CBC),
+			App.PKCS8withPBES2.derOid(Helper.OID.AES256_CBC),
 			App.PKCS8withPBES2.derOctetString(iv)
 		)
 	);
@@ -254,7 +208,7 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
 	// encryptionAlgorithm AlgorithmIdentifier (PBES2 + params)
 	const encryptionAlgorithm = App.PKCS8withPBES2.derSequence(
 		App.PKCS8withPBES2.derConcat(
-			App.PKCS8withPBES2.derOid(OID.PBES2),
+			App.PKCS8withPBES2.derOid(Helper.OID.PBES2),
 			pbes2Params
 		)
 	);
@@ -320,10 +274,10 @@ const bcryptKdf = (passphrase, rounds = 16, saltLen = 16, returnBufferLen = 32) 
 		rounds
 	);
 
-	console.log([
+	console.log(Helper.implode([
 		"AEAD-Key Hex Dump:",
 		[...aeadKey].map((b) => b.toString(16).padStart(2, "0")).join("")
-	].join("\n"));
+	]));
 
 	return { salt: saltBytes, aeadKey };
 };
@@ -560,7 +514,7 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, passphrase, comment) {
 
 	const binary = buildOpenSSHKeyV1(buildMaterial);
 
-	return Helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
+	return Helper.toPEM(binary, App.Helper.PEM_LABEL.privateKey, 70, App.Helper.PEM_LABEL.opensshAdd);
 }
 
 /**
