@@ -1,0 +1,11 @@
+{
+  "name": "keygen",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  },
+  "scripts": {
+    "build": "esbuild src/modules/bridge.js --bundle --minify --sourcemap --format=esm --target=es2020 --outfile=dist/app.js"
+  }
+}

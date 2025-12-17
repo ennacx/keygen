@@ -30,6 +30,7 @@ jobs:
 
     - name: Make directory
       run: |
+        rm -rf ./dist
         mkdir -p ./dist
         mkdir -p ./dist/resources
 
@@ -62,6 +63,11 @@ jobs:
 #        cp ./resources/icon-256.png ./dist/resources/
 #        cp ./resources/icon-512.png ./dist/resources/
 #        cp ./resources/ogp-banner.png ./dist/resources/
+
+    - name: Run ESBUILD
+      run: |
+         npm ci
+         npm run build
 
     - name: Upload Pages artifact
       uses: actions/upload-pages-artifact@v3
