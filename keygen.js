@@ -210,21 +210,21 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, passphrase, comment) {
 	let pubBlob;
 	let privBlob;
 
+	const pubkey = new App.PubKey(keyMaterial.spki);
 	const opt = {};
 
 	// RSA
 	if(keyType === "ssh-rsa"){
-		const rsa = await App.makeRsaOpenSSHPubKey(keyMaterial.spki); // SPKI → OpenSSH blob
+		const rsa = await pubkey.rsa();
 		pubBlob   = rsa.raw;
-		privBlob = keyMaterial.rsaPrivatePart();
+		privBlob  = keyMaterial.rsaPrivatePart();
 	}
 	// ECDSA
 	else if(keyType.startsWith("ecdsa-sha2-")){
-		const ecdsa = await App.makeEcdsaOpenSSHPubKey(keyMaterial.spki);
+		const ecdsa = await pubkey.ecdsa();
 		pubBlob     = ecdsa.raw;
-
-		privBlob = keyMaterial.ecdsaPrivatePart();
-		opt.Q = keyMaterial.ecdsaQPoint();
+		privBlob    = keyMaterial.ecdsaPrivatePart();
+		opt.Q       = keyMaterial.ecdsaQPoint();
 	}
 	// 不正
 	else{
@@ -419,7 +419,19 @@ async function generateKey(name, opt, onProgress) {
 	const passphrase = (opt.passphrase && opt.passphrase !== '') ? opt.passphrase : null;
 	const encryption = (passphrase !== null) ? "aes256-cbc" : "none";
 
+	/**
+	 * Represents an asynchronous callback function that retrieves an instance of KeyMaterial.
+	 *
+	 * This function uses the `KeyMaterial.getInstance` method to obtain a key material instance.
+	 * The instance is created using the provided `name` and options `opt` that specify the desired
+	 * length `opt.len` and elliptic curve `opt.nist`.
+	 *
+	 * @async
+	 * @function
+	 * @returns {Promise<KeyMaterial>} A promise that resolves to an instance of KeyMaterial.
+	 */
 	const kmCallback = async () => KeyMaterial.getInstance(name, { len: opt.len, curve: opt.nist });
+
 	if(keygenReduceNum >= 0){
 		const count = 7;
 		let done = 0;
@@ -448,6 +460,18 @@ async function generateKey(name, opt, onProgress) {
 		}
 	}
 
+	const pubkey = new App.PubKey(keyMaterial.spki);
+
+	/**
+	 * Constructs an OpenSSH formatted public key string.
+	 *
+	 * @function
+	 * @param {Object} opt - Options object containing the prefix for the key type.
+	 * @param {string} opt.prefix - The prefix indicating the public key type, e.g., "ssh-rsa".
+	 * @param {string} pubkey - The base64-encoded public key string.
+	 * @param {string} [comment] - An optional comment to include in the key string.
+	 * @returns {string} The formatted OpenSSH public key string.
+	 */
 	const makeOpenSshPubKey = (opt, pubkey, comment) =>
 		`${opt.prefix} ${pubkey}` + ((comment !== undefined && comment !== '') ? ` ${comment}` : "");
 
@@ -457,19 +481,21 @@ async function generateKey(name, opt, onProgress) {
 	let ppk;
 	switch(name){
 		case "RSA":
-			const rsaOpenssh = await App.makeRsaOpenSSHPubKey(keyMaterial.spki);
+			const rsaOpenssh = await pubkey.rsa();
 
 			opensshPubkey = makeOpenSshPubKey(opt, rsaOpenssh.pubkey, comment);
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${rsaOpenssh.fingerprint}`;
 			ppk = await App.PPKv3.makeRsaPpkV3(opt.prefix, keyMaterial, comment, rsaOpenssh.raw, encryption, passphrase);
+
 			break;
 
 		case "ECDSA":
-			const ecdsaOpenssh = await App.makeEcdsaOpenSSHPubKey(keyMaterial.spki);
+			const ecdsaOpenssh = await pubkey.ecdsa();
 
 			opensshPubkey = makeOpenSshPubKey(opt, ecdsaOpenssh.pubkey, comment);
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${ecdsaOpenssh.fingerprint}`;
 			ppk = await App.PPKv3.makeEcdsaPpkV3(opt.prefix, keyMaterial, comment, ecdsaOpenssh.raw, encryption, passphrase);
+
 			break;
 	}
 
