@@ -248,7 +248,8 @@ $(() => {
 				switch(encType){
 					case 'pkcs8':
 						if(opt.passphrase && opt.passphrase !== ""){
-							const { der } = await encryptPkcs8WithPBES2(result.material.pkcs8, opt.passphrase, { iterations: 100_000 });
+							const pkcs8pbes2 = new App.PKCS8withPBES2(opt.passphrase);
+							const { der } = await pkcs8pbes2.encrypt(result.material.pkcs8);
 							privatePEM = App.Helper.toPEM(der, App.Helper.PEM_LABEL.privateKey, 64, App.Helper.PEM_LABEL.encryptedAdd);
 						} else{
 							throw new Error("Passphrase is required for PKCS#8 encryption.");

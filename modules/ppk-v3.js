@@ -19,7 +19,7 @@ export class PPKv3 {
 		const privPlain = keyMaterial.rsaPrivatePartPPKv3();
 
 		// ランダムパディング込みの秘密鍵
-		const privPadded = addRandomPadding(privPlain, 16);
+		const privPadded = this.#addRandomPadding(privPlain, 16);
 
 		// Base64用に暗号化or平文
 		let privOut;
@@ -96,7 +96,7 @@ export class PPKv3 {
 		// 平文の秘密鍵blob
 		const privPlain = keyMaterial.ecdsaPrivatePart();
 		// ランダムパディング込みの秘密鍵
-		const privPadded = addRandomPadding(privPlain, 16);
+		const privPadded = this.#addRandomPadding(privPlain, 16);
 
 		// Base64用に暗号化or平文
 		let privOut;
@@ -248,6 +248,33 @@ export class PPKv3 {
 		]);
 
 		return { privOut, macKey, kdLines };
+	};
+
+	/**
+	 * Adds random padding to the given data to align its length with the specified block size.
+	 *
+	 * This function ensures that the returned data is a multiple of the specified block size
+	 * by appending randomly generated padding bytes when necessary. If the input data length
+	 * is already a multiple of the block size, no padding is added, and the original data is returned.
+	 *
+	 * The padding bytes are generated using a cryptographically secure random number generator.
+	 *
+	 * @param {Uint8Array} plain - The input data to which padding will be added.
+	 * @param {number} [blockSize=16] - The block size to align the length of the data. Default is 16 bytes.
+	 * @returns {Uint8Array} The input data with random padding added, ensuring its length is a multiple of the block size.
+	 */
+	static #addRandomPadding(plain, blockSize = 16) {
+		const len = plain.length;
+		const rem = len % blockSize;
+		const padLen = (blockSize - rem) % blockSize; // 0～15
+
+		// すでに`blockSize`の倍数ならパディング無しでOK
+		if(padLen === 0){
+			return plain;
+		}
+
+		const pad = crypto.getRandomValues(new Uint8Array(padLen));
+		return App.Bytes.concat(plain, pad);
 	};
 
 	/**

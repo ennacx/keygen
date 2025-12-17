@@ -8,6 +8,7 @@ import { RFC4253 } from './rfc4253.js';
 import { KeyMaterial } from "./key-material.js";
 import { PKCS8withPBES2 } from './pkcs8-with-pbes2.js';
 import { PPKv3 } from './ppk-v3.js';
+import { makeRsaOpenSSHPubKey, makeEcdsaOpenSSHPubKey } from "./pubkey.js";
 
 window.CdnApp = Object.freeze({
 	bcryptPbkdf,
@@ -20,6 +21,7 @@ window.App = Object.freeze({
 	RFC4253,
 	PKCS8withPBES2,
 	PPKv3,
+	makeRsaOpenSSHPubKey, makeEcdsaOpenSSHPubKey,
 });
 
 window.KeyMaterial = KeyMaterial;

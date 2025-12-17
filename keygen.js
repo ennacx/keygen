@@ -56,186 +56,6 @@ async function makeFingerprint(blob) {
 }
 
 /**
- * Generates an OpenSSH public key in RSA format from a given SPKI buffer.
- *
- * @async
- * @param {Uint8Array} spkiBuf - A buffer containing the SPKI (Subject Public Key Info) data.
- * @return {Promise<{raw: Uint8Array, pubkey: string, fingerprint: string}>} A promise that resolves to an object with the following properties:
- *  - `raw`: RSA public key in OpenSSH format.
- *  - `pubkey`: The Base64-encoded RSA public key in OpenSSH format.
- *  - `fingerprint`: The fingerprint of the RSA public key.
- */
-async function makeRsaOpenSSHPubKey(spkiBuf) {
-	const parser = new Parser(spkiBuf);
-	const rsa = parser.rsaSpki();
-	const blob = App.Bytes.concat(
-		rfc4253.writeString(rsa.name),
-		rfc4253.writeMpint(rsa.e),
-		rfc4253.writeMpint(rsa.n)
-	);
-
-	return {
-		raw: blob,
-		pubkey: App.Bytes.toBase64(blob),
-		fingerprint: await makeFingerprint(blob)
-	};
-}
-
-/**
- * Generates an OpenSSH ECDSA public key from the provided SPKI (Subject Public Key Information) buffer.
- *
- * @async
- * @param {Uint8Array} spkiBuf The buffer containing the SPKI data to parse the ECDSA public key from.
- * @return {Promise<{raw: Uint8Array, pubkey: string, fingerprint: string}>} A promise that resolves to an object with the following properties:
- *  - `raw`: ECDSA public key in OpenSSH format.
- *  - `pubkey`: The Base64-encoded ECDSA public key in OpenSSH format.
- *  - `fingerprint`: The fingerprint of the ECDSA public key.
- */
-async function makeEcdsaOpenSSHPubKey(spkiBuf) {
-	const parser = new Parser(spkiBuf);
-	const ecdsa = parser.ecdsaSpki();
-	const blob = App.Bytes.concat(
-		rfc4253.writeString(`ecdsa-sha2-${ecdsa.curveName}`), //string  ex. "ecdsa-sha2-nistp256"
-		rfc4253.writeString(ecdsa.curveName), // string "nistp256"
-		rfc4253.writeStringBytes(ecdsa.Q),    // string Q (0x04 || X || Y)
-	);
-
-	return {
-		raw: blob,
-		pubkey: App.Bytes.toBase64(blob),
-		fingerprint: await makeFingerprint(blob)
-	};
-}
-
-/**
- * Encrypts a PKCS#8 private key buffer using PBES2 with PBKDF2 and AES-256-CBC.
- *
- * @async
- * @param {ArrayBuffer|Uint8Array} pkcs8Buf The PKCS#8 private key buffer to be encrypted.
- * @param {string} passphrase The passphrase to derive the encryption key.
- * @param {Object} [opt={}] Optional parameters for encryption.
- * @param {number} [opt.iterations=100000] The number of PBKDF2 iterations.
- * @param {number} [opt.saltSize=16] The size of the salt for key derivation.
- * @return {Promise<Object>} An object containing the DER-encoded encrypted key and encryption parameters:
- *     - `der` (Uint8Array): The DER-encoded encrypted private key.
- *     - `params` (Object): The parameters used for encryption, including:
- *         - `salt` (Uint8Array): The random salt.
- *         - `iterations` (number): The PBKDF2 iteration count.
- *         - `keyLength` (number): The AES key length (default is 32 bytes for AES-256).
- *         - `iv` (Uint8Array): The initialization vector (IV) used for AES-CBC encryption.
- */
-async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
-	const buffer = (pkcs8Buf instanceof Uint8Array) ? pkcs8Buf : new Uint8Array(pkcs8Buf);
-
-	const iterations = opt.iterations ?? 100_000;
-	const saltSize   = opt.saltSize   ?? 16;
-	const keyLength  = 32;   // AES-256
-	const hash       = "SHA-256";
-
-	// RandomSaltとIVの生成
-	const salt = crypto.getRandomValues(new Uint8Array(saltSize));
-	const iv   = crypto.getRandomValues(new Uint8Array(16));
-
-	// ---- PBKDF2でAES-256キーを導出 (PBKDF2-HMAC-SHA256)
-	const baseKey = await crypto.subtle.importKey("raw", Helper.toUtf8(passphrase), "PBKDF2", false, ["deriveKey"]);
-	const aesKey = await crypto.subtle.deriveKey(
-		{ name: "PBKDF2", salt, iterations, hash },
-		baseKey,
-		{ name: "AES-CBC", length: 256 },
-		false,
-		["encrypt"]
-	);
-
-	// ---- AES-256-CBC + PKCS#7 padding (WebCrypto Standard)
-	const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-CBC", iv }, aesKey, buffer));
-
-	// ====== ここから ASN.1 (Abstract Syntax Notation 1) 組み立て ======
-
-	// PRF AlgorithmIdentifier (hmacWithSHA256, NULL)
-	const prfAlgId = App.PKCS8withPBES2.derSequence(
-		App.PKCS8withPBES2.derConcat(
-			App.PKCS8withPBES2.derOid(Helper.OID.HMAC_SHA256),
-			App.PKCS8withPBES2.derNull()
-		)
-	);
-
-	/*
-	 * PBKDF2-params ::= SEQUENCE {
-	 *   salt OCTET STRING,
-	 *   iterationCount INTEGER,
-	 *   keyLength INTEGER OPTIONAL,
-	 *   prf AlgorithmIdentifier DEFAULT
-	 * }
-	 */
-	const pbkdf2Params = App.PKCS8withPBES2.derSequence(
-		App.PKCS8withPBES2.derConcat(
-			App.PKCS8withPBES2.derOctetString(salt),
-			App.PKCS8withPBES2.derInt(iterations),
-			App.PKCS8withPBES2.derInt(keyLength),
-			prfAlgId
-		)
-	);
-
-	// KeyDerivationFunction AlgorithmIdentifier (PBKDF2)
-	const kdfAlgId = App.PKCS8withPBES2.derSequence(
-		App.PKCS8withPBES2.derConcat(
-			App.PKCS8withPBES2.derOid(Helper.OID.PBKDF2),
-			pbkdf2Params
-		)
-	);
-
-	// EncryptionScheme AlgorithmIdentifier (AES-256-CBC, params=IV)
-	const encSchemeAlgId = App.PKCS8withPBES2.derSequence(
-		App.PKCS8withPBES2.derConcat(
-			App.PKCS8withPBES2.derOid(Helper.OID.AES256_CBC),
-			App.PKCS8withPBES2.derOctetString(iv)
-		)
-	);
-
-	/*
-	 * PBES2-params ::= SEQUENCE {
-	 *   keyDerivationFunc,
-	 *   encryptionScheme
-	 * }
-	 */
-	const pbes2Params = App.PKCS8withPBES2.derSequence(
-		App.PKCS8withPBES2.derConcat(
-			kdfAlgId,
-			encSchemeAlgId
-		)
-	);
-
-	// encryptionAlgorithm AlgorithmIdentifier (PBES2 + params)
-	const encryptionAlgorithm = App.PKCS8withPBES2.derSequence(
-		App.PKCS8withPBES2.derConcat(
-			App.PKCS8withPBES2.derOid(Helper.OID.PBES2),
-			pbes2Params
-		)
-	);
-
-	// encryptedData OCTET STRING
-	const encryptedData = App.PKCS8withPBES2.derOctetString(ciphertext);
-
-	/*
-	 * EncryptedPrivateKeyInfo ::= SEQUENCE {
-	 *   encryptionAlgorithm,
-	 *   encryptedData
-	 * }
-	 */
-	const encryptedPrivateKeyInfo = App.PKCS8withPBES2.derSequence(
-		App.PKCS8withPBES2.derConcat(
-			encryptionAlgorithm,
-			encryptedData
-		)
-	);
-
-	return {
-		der: encryptedPrivateKeyInfo,
-		params: { salt, iterations, keyLength, iv }
-	};
-}
-
-/**
  * Generates a derived key using the bcrypt-PBKDF function.
  *
  * This function creates a cryptographic key based on a given passphrase and returns
@@ -255,7 +75,9 @@ async function encryptPkcs8WithPBES2(pkcs8Buf, passphrase, opt = {}) {
  * @see https://app.unpkg.com/bcrypt-pbkdf@1.0.2/files/README.md
  */
 const bcryptKdf = (passphrase, rounds = 16, saltLen = 16, returnBufferLen = 32) => {
-	if(!passphrase){
+	if(!CdnApp.bcryptPbkdf || typeof CdnApp.bcryptPbkdf.pbkdf !== 'function'){
+		throw new Error("bcrypt-pbkdf not found");
+	} else if(!passphrase){
 		throw new Error("Empty passphrase");
 	}
 
@@ -392,13 +214,13 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, passphrase, comment) {
 
 	// RSA
 	if(keyType === "ssh-rsa"){
-		const rsa = await makeRsaOpenSSHPubKey(keyMaterial.spki); // SPKI → OpenSSH blob
+		const rsa = await App.makeRsaOpenSSHPubKey(keyMaterial.spki); // SPKI → OpenSSH blob
 		pubBlob   = rsa.raw;
 		privBlob = keyMaterial.rsaPrivatePart();
 	}
 	// ECDSA
 	else if(keyType.startsWith("ecdsa-sha2-")){
-		const ecdsa = await makeEcdsaOpenSSHPubKey(keyMaterial.spki);
+		const ecdsa = await App.makeEcdsaOpenSSHPubKey(keyMaterial.spki);
 		pubBlob     = ecdsa.raw;
 
 		privBlob = keyMaterial.ecdsaPrivatePart();
@@ -520,33 +342,6 @@ async function makeOpenSSHPrivateKeyV1(cipher, keyType, passphrase, comment) {
 }
 
 /**
- * Adds random padding to the given data to align its length with the specified block size.
- *
- * This function ensures that the returned data is a multiple of the specified block size
- * by appending randomly generated padding bytes when necessary. If the input data length
- * is already a multiple of the block size, no padding is added, and the original data is returned.
- *
- * The padding bytes are generated using a cryptographically secure random number generator.
- *
- * @param {Uint8Array} plain - The input data to which padding will be added.
- * @param {number} [blockSize=16] - The block size to align the length of the data. Default is 16 bytes.
- * @returns {Uint8Array} The input data with random padding added, ensuring its length is a multiple of the block size.
- */
-const addRandomPadding = (plain, blockSize = 16) => {
-	const len = plain.length;
-	const rem = len % blockSize;
-	const padLen = (blockSize - rem) % blockSize; // 0～15
-
-	// すでに`blockSize`の倍数ならパディング無しでOK
-	if(padLen === 0){
-		return plain;
-	}
-
-	const pad = crypto.getRandomValues(new Uint8Array(padLen));
-	return App.Bytes.concat(plain, pad);
-};
-
-/**
  * Encrypts the given plaintext using AES-CBC encryption
  * with the provided key and initialization vector (IV) within PKCS#7 padding.
  *
@@ -662,7 +457,7 @@ async function generateKey(name, opt, onProgress) {
 	let ppk;
 	switch(name){
 		case "RSA":
-			const rsaOpenssh = await makeRsaOpenSSHPubKey(keyMaterial.spki);
+			const rsaOpenssh = await App.makeRsaOpenSSHPubKey(keyMaterial.spki);
 
 			opensshPubkey = makeOpenSshPubKey(opt, rsaOpenssh.pubkey, comment);
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${rsaOpenssh.fingerprint}`;
@@ -670,7 +465,7 @@ async function generateKey(name, opt, onProgress) {
 			break;
 
 		case "ECDSA":
-			const ecdsaOpenssh = await makeEcdsaOpenSSHPubKey(keyMaterial.spki);
+			const ecdsaOpenssh = await App.makeEcdsaOpenSSHPubKey(keyMaterial.spki);
 
 			opensshPubkey = makeOpenSshPubKey(opt, ecdsaOpenssh.pubkey, comment);
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${ecdsaOpenssh.fingerprint}`;
