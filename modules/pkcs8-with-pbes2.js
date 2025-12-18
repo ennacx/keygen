@@ -57,7 +57,7 @@ export class PKCS8withPBES2 {
 	constructor(passphrase, iterations = 100_000, saltSize = 16) {
 		this.#passphrase = passphrase;
 		this.#iterations = iterations;
-		this.#saltSize = saltSize;
+		this.#saltSize   = saltSize;
 	}
 
 	/**
@@ -66,7 +66,7 @@ export class PKCS8withPBES2 {
 	 * @async
 	 * @param {ArrayBuffer|Uint8Array} privDer The PKCS#8 private key buffer to be encrypted.
 	 * @return {Promise<Object>} An object containing the DER-encoded encrypted key and encryption parameters:
-	 *     - `der` (Uint8Array): The DER-encoded encrypted private key.
+	 *     - `encrypted` (Uint8Array): The DER-encoded encrypted private key.
 	 *     - `params` (Object): The parameters used for encryption, including:
 	 *         - `salt` (Uint8Array): The random salt.
 	 *         - `iterations` (number): The PBKDF2 iteration count.
@@ -160,7 +160,7 @@ export class PKCS8withPBES2 {
 		);
 
 		return {
-			der: encryptedPrivateKeyInfo,
+			encrypted: encryptedPrivateKeyInfo,
 			salt: salt,
 			iv: iv
 		};

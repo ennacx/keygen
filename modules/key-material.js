@@ -1,8 +1,8 @@
 /**
- * Represents cryptographic key material and provides methods for key generation, export, and manipulation.
+ * Class representing cryptographic key material used for secure operations
+ * such as encryption, decryption, signing, and verification.
  */
 export class KeyMaterial {
-
 	/**
 	 * Represents a cryptographic key pair used for secure communication.
 	 * Typically includes a private key and a corresponding public key.
@@ -115,12 +115,12 @@ export class KeyMaterial {
 
 	/**
 	 * Generates and returns the concatenated RSA private key components in the specified order.
-	 * Keys include modulus (n), public exponent (e), private exponent (d),
-	 * CRT coefficient (qi), and prime factors (p, q).
+	 * Keys include modulus (`n`), public exponent (`e`), private exponent (`d`),
+	 * CRT coefficient (`qi`), and prime factors (`p, q`).
 	 *
 	 * @throws {Error} If the JWK object is not initialized.
 	 * @return {Uint8Array} A byte array containing the concatenated RSA private key components
-	 *                      in the order: n, e, d, qi, p, q.
+	 *                      in the order: `n, e, d, qi, p, q`.
 	 */
 	rsaPrivatePart() {
 		if(!this.jwk){
@@ -145,6 +145,13 @@ export class KeyMaterial {
 		);
 	}
 
+	/**
+	 * Serializes the private components of an RSA key (d, p, q, qinv) into the PPKv3 (PuTTY-Private-Key v3) format,
+	 * which follows the specific order required: `d, p, q, qinv`.
+	 *
+	 * @return {Uint8Array} A concatenated byte array representing the private key components in PPKv3 format.
+	 * @throws {Error} Throws an error if the JWK object is not initialized.
+	 */
 	rsaPrivatePartPPKv3() {
 		if(!this.jwk){
 			throw new Error(this.JWK_NO_INIT_ERR_MSG);
@@ -164,6 +171,14 @@ export class KeyMaterial {
 		);
 	}
 
+	/**
+	 * Retrieves the private part of an ECDSA key.
+	 * The method extracts the private key component (`d`) from the JWK property
+	 * and returns it as bytes. Throws an error if the JWK is not initialized.
+	 *
+	 * @return {Uint8Array} The private key component in byte format.
+	 * @throws {Error} If the JWK property is not initialized.
+	 */
 	ecdsaPrivatePart() {
 		if(!this.jwk){
 			throw new Error(this.JWK_NO_INIT_ERR_MSG);
@@ -173,6 +188,24 @@ export class KeyMaterial {
 		return App.Bytes.fromBase64(this.jwk.d);
 	}
 
+	/**
+	 * Generates the Q point for an ECDSA key based on the X and Y coordinates in the JWK.
+	 *
+	 * The Q point is represented as: `0x04 || xBytes || yBytes`,
+	 * where:
+	 *   - 0x04 is a 1-byte prefix.
+	 *   - xBytes represents the X coordinate.
+	 *   - yBytes represents the Y coordinate.
+	 *
+	 * The length of the generated Q point varies based on the curve:
+	 *   - P-256: 65 bytes (1 + 32 + 32).
+	 *   - P-384: 97 bytes (1 + 48 + 48).
+	 *   - P-521: 133 bytes (1 + 66 + 66).
+	 *
+	 * @throws {Error} If the `jwk` property is not initialized.
+	 * @return {Uint8Array} The concatenated Q point.
+	 * @see [SEC1 (Elliptic Curve Cryptography 1)](https://en.wikipedia.org/wiki/Elliptic-curve_cryptography)
+	 */
 	ecdsaQPoint() {
 		if(!this.jwk){
 			throw new Error(this.JWK_NO_INIT_ERR_MSG);

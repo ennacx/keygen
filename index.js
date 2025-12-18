@@ -192,16 +192,19 @@ $(() => {
 
 		const al = $('select[name="algo"] option:selected').val();
 		const opt = {
-			comment: $('input[name="comment"]').val().replace(" ", "-").replace(/[^ -~]/g, '') // 半角英数字と記号以外は省く
+			comment: $('input[name="comment"]').val()
+				.trim()                 // 両サイドトリム
+				.replace(/ +/g, "-")    // 文字間スペースをハイフンに
+				.replace(/[^ -~]/g, "") // 半角英数字と記号以外は省く
 		};
 
 		const $progress = $('#generate-fill');
-		const progress = (done, total) => {
+		const progressFunc = (done, total) => {
 			$progress.width(`${Math.round((done / total) * 100)}%`);
 		};
 
 		// プログレスバーの初期化
-		progress(0, 1);
+		progressFunc(0, 1);
 
 		switch(al){
 			case 'RSA':
@@ -237,7 +240,7 @@ $(() => {
 		}
 
 		// try {
-			const result = await generateKey(al, opt, progress);
+			const result = await generateKey(al, opt, progressFunc);
 
 			// 公開PEM
 			const publicPEM  = App.Helper.toPEM(result.material.spki, App.Helper.PEM_LABEL.publicKey, 64);
@@ -249,8 +252,8 @@ $(() => {
 					case 'pkcs8':
 						if(opt.passphrase && opt.passphrase !== ""){
 							const pkcs8pbes2 = new App.PKCS8withPBES2(opt.passphrase);
-							const { der } = await pkcs8pbes2.encrypt(result.material.pkcs8);
-							privatePEM = App.Helper.toPEM(der, App.Helper.PEM_LABEL.privateKey, 64, App.Helper.PEM_LABEL.encryptedAdd);
+							const { encrypted } = await pkcs8pbes2.encrypt(result.material.pkcs8);
+							privatePEM = App.Helper.toPEM(encrypted, App.Helper.PEM_LABEL.privateKey, 64, App.Helper.PEM_LABEL.encryptedAdd);
 						} else{
 							throw new Error("Passphrase is required for PKCS#8 encryption.");
 						}

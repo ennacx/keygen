@@ -1,3 +1,8 @@
+/**
+ * Represents the PPKv3 class, which provides functionality to generate RSA and ECDSA
+ * PuTTY private key (PPK) files in the PuTTY-User-Key-File-3 format, with optional encryption
+ * and passphrase-based key derivation.
+ */
 export class PPKv3 {
 	/**
 	 * Generates an RSA PPK (PuTTY Private Key) file in the format of PuTTY-User-Key-File-3.
