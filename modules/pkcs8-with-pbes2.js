@@ -178,11 +178,12 @@ export class PKCS8withPBES2 {
 	 * @returns {Uint8Array} A new Uint8Array containing the concatenation of all input arrays.
 	 */
 	#derConcat(...arrays) {
-		const len = arrays.reduce((n, a) => n + a.length, 0);
+		const arr = ((arrays.length === 1 && Array.isArray(arrays[0])) ? arrays[0] : [...arrays]).filter((a) => a instanceof Uint8Array);
+		const len = arr.reduce((n, a) => n + a.length, 0);
 		const out = new Uint8Array(len);
 
 		let off = 0;
-		for(const a of arrays){
+		for(const a of arr){
 			out.set(a, off);
 			off += a.length;
 		}

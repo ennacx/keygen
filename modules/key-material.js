@@ -73,7 +73,8 @@ export class KeyMaterial {
 	 * @param {number} options.len - The modulus length (in bits) for RSA key generation.
 	 * @param {string} options.curve - The named elliptic curve for ECDSA key generation.
 	 *
-	 * @return {Promise<Object>} A promise that resolves to an instance of the class containing the generated keys (`keyPair`), exported public key (`spki`), private key (`pkcs8`), and private key in JWK format (`jwk`).
+	 * @return {Promise<Object>} A promise that resolves to an instance of the class containing the generated keys (`keyPair`),
+	 *                           exported public key (`spki`), private key (`pkcs8`), and private key in JWK format (`jwk`).
 	 *
 	 * @throws {Error} If the specified algorithm is not supported or the key pair generation fails.
 	 */
@@ -146,7 +147,7 @@ export class KeyMaterial {
 	}
 
 	/**
-	 * Serializes the private components of an RSA key (d, p, q, qinv) into the PPKv3 (PuTTY-Private-Key v3) format,
+	 * Serializes the private components of an RSA key (`d, p, q, qinv`) into the PPKv3 (PuTTY-Private-Key v3) format,
 	 * which follows the specific order required: `d, p, q, qinv`.
 	 *
 	 * @return {Uint8Array} A concatenated byte array representing the private key components in PPKv3 format.

@@ -6,7 +6,7 @@ export class Bytes {
 	 * @returns {Uint8Array} A new Uint8Array that contains the concatenated bytes of all input arrays.
 	 */
 	static concat(...arrays) {
-		const arr = ((arrays.length === 1 && Array.isArray(arrays[0])) ? arrays : [...arrays]).filter((a) => a instanceof Uint8Array);
+		const arr = ((arrays.length === 1 && Array.isArray(arrays[0])) ? arrays[0] : [...arrays]).filter((a) => a instanceof Uint8Array);
 		const len = arr.reduce((sum, a) => sum + a.length, 0);
 		const out = new Uint8Array(len);
 		let offset = 0;

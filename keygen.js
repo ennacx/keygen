@@ -69,8 +69,8 @@ async function makeFingerprint(blob) {
  * @param {number} [saltLen=16] - The length of the salt to be generated in bytes.
  * @param {number} [returnBufferLen=32] - The length of the derived key to generate in bytes.
  * @returns {Object} An object containing the following properties:
- *                   - `salt` {Uint8Array}: The randomly generated salt used in the derivation process.
- *                   - `aeadKey` {Uint8Array}: The derived key in a byte array format.
+ *   - `salt` {Uint8Array}: The randomly generated salt used in the derivation process.
+ *   - `aeadKey` {Uint8Array}: The derived key in a byte array format.
  * @throws {Error} If the passphrase is empty or invalid.
  * @see https://app.unpkg.com/bcrypt-pbkdf@1.0.2/files/README.md
  */
@@ -394,25 +394,30 @@ const aesCbcEncryptRawNoPadding = (keyBytes, ivBytes, plaintext) => {
 }
 
 /**
- * Generates a cryptographic key pair based on the specified algorithm and options.
+ * Generates a cryptographic key and associated metadata based on the provided parameters.
+ *
+ * This function supports generating RSA and ECDSA keys. Additionally, it creates necessary
+ * representations of the key, including OpenSSH formatted public keys, fingerprints, and PuTTY
+ * private key (PPK) files.
  *
  * @async
- * @param {string} name - The name of the cryptographic algorithm to use, such as 'RSA' or 'ECDSA'.
- * @param {Object} opt - An object containing options for key generation. This may include properties such as:
- *  - `len`: The key size for RSA keys.
- *  - `nist`: The named curve for ECDSA keys.
- *  - `comment`: An optional comment to include in the generated key.
- *  - `passphrase`: An optional passphrase for the keys.
- *  - `prefix`: A prefix string for keys.
- * @param {Function} [onProgress] - An optional callback function that receives progress updates. The function is called with two arguments: the current progress and the total steps.
- * @return {Promise<Object>} A promise that resolves to an object containing the generated key information:
- *  - `raw`: The generated raw key pair
- *  - `public`: The public key in SPKI encoded format.
- *  - `private`: The private key in PKCS#8 encoded format.
- *  - `openssh`: The public key in OpenSSH format.
- *  - `ppk`: The private key in PuTTY private key format.
- *  - `fingerprint`: The fingerprint of the generated public key.
- * @throws {Error} If an invalid algorithm name is provided, or if key generation fails.
+ * @function generateKey
+ * @param {string} name - The type of key to generate ("RSA" or "ECDSA").
+ * @param {Object} opt - An options object containing key generation settings.
+ * @param {number} opt.len - The key length for RSA keys or an equivalent parameter for other key types.
+ * @param {string} opt.nist - The elliptic curve name for ECDSA keys.
+ * @param {string} [opt.comment] - An optional comment to associate with the generated key.
+ * @param {string} [opt.passphrase] - A passphrase used to encrypt the private key.
+ * @param {string} [opt.prefix] - The prefix indicating the public key type (e.g., "ssh-rsa").
+ * @param {function} [onProgress] - An optional callback function invoked to report the progress of key generation.
+ *                                    The function is called with two arguments: the number of completed tasks
+ *                                    and the total number of tasks.
+ * @return {Promise<Object>}
+ * A promise that resolves to an object containing the generated key material and related information:
+ *  - `material` (KeyMaterial): The generated key material.
+ *  - `openssh` (string): The OpenSSH formatted public key string.
+ *  - `ppk` (Object): The PuTTY private key (PPK) object.
+ *  - `fingerprint` (string): The fingerprint of the generated key.
  */
 async function generateKey(name, opt, onProgress) {
 	const comment    = (opt.comment && opt.comment !== '') ? opt.comment : "";
@@ -435,6 +440,16 @@ async function generateKey(name, opt, onProgress) {
 	if(keygenReduceNum >= 0){
 		const count = 7;
 		let done = 0;
+
+		/**
+		 * A function that wraps a given Promise to track its resolution progress.
+		 * Updates the progress by invoking a specified `onProgress` callback function,
+		 * if defined, whenever the wrapped Promise resolves.
+		 *
+		 * @param {Promise} p - The Promise to be wrapped and tracked for progress.
+		 * @returns {Promise} A new Promise that resolves with the result of the input Promise.
+		 *                    The progress is updated when the Promise resolves.
+		 */
 		const wrapWithProgress = (p) =>
 			p.then((result) => {
 				if(typeof onProgress === 'function'){
