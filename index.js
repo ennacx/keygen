@@ -192,7 +192,7 @@ $(() => {
 
 		const al = $('select[name="algo"] option:selected').val();
 		const opt = {
-			comment: $('input[name="comment"]').val().replace(/[^ -~]/g, '') // 半角英数字と記号以外は省く
+			comment: $('input[name="comment"]').val().replace(" ", "-").replace(/[^ -~]/g, '') // 半角英数字と記号以外は省く
 		};
 
 		const $progress = $('#generate-fill');
