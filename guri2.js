@@ -1,26 +1,25 @@
 (() => {
 	// 目標ビット数 (2bits/ev見積 ⇒ 128サンプル ≒ 256bits)
-	const TARGET_BITS = 256;
+	const TARGET_BITS    = 256;
 	const BITS_PER_EVENT = 2;
 
 	// リングバッファ的に生バッファを溜める
 	const POOL_BYTES = 1024;
-	const POOL = new Uint8Array(POOL_BYTES);
+	const POOL       = new Uint8Array(POOL_BYTES);
 
-	const PASSIVE_TRUE = { passive: true };
-
-	let initialized = false;
-	let writeIdx = 0;
-	let collectedBits = 0;
-	let done = false;
+	// フラグ関係
+	let initialized   = false; // ぐりぐり収集開始フラグ
+	let writeIdx      = 0;     // TARGET_BITSまでのカウンター
+	let collectedBits = 0;     // 収集ビット数
+	let done          = false; // 収集完了フラグ
 
 	const guriCheck = document.getElementById('guri2view');
-	const zone = document.getElementById('guri2-zone');
-	const fill = document.getElementById('guri2-fill');
-	const status = document.getElementById('guri2-status');
-	const out = document.getElementById('guri2-out');
-	const btnGen = document.getElementById('generate-button');
-	const btnReset = document.getElementById('gen-reset-button');
+	const zone      = document.getElementById('guri2-zone');
+	const fill      = document.getElementById('guri2-fill');
+	const status    = document.getElementById('guri2-status');
+	const out       = document.getElementById('guri2-out');
+	const btnGen    = document.getElementById('generate-button');
+	const btnReset  = document.getElementById('gen-reset-button');
 
 	/**
 	 * Adds entropy to the random number generation pool by incorporating various
@@ -63,7 +62,7 @@
 			if(!done){
 				done = true;
 
-				zone.textContent = "Collect completed!";
+				zone.textContent = 'Collect completed!';
 				status.textContent = `${TARGET_BITS} bits of entropy were collected.`;
 
 				btnGen.disabled = false;
@@ -95,20 +94,19 @@
 	 * ぐりぐりリセット
 	 */
 	const guri2Reset = () => {
-		POOL.fill(0);console.log(Helper.implode([
-			'Seed:',
-			App.Bytes.toBase64(POOL)
-		]));
+		// 生バッファを溜める配列初期化
+		POOL.fill(0);
 
-		initialized = false;
-		writeIdx = 0;
+		// フラグ関係の初期化
+		initialized   = false;
+		writeIdx      = 0;
 		collectedBits = 0;
-		done = false;
+		done          = false;
 
 		fill.style.width = '0%';
 		status.innerHTML = `Collecting: <span id="collect-bits">${collectedBits}</span> / ${TARGET_BITS} bits`;
-		zone.textContent = "Click or tap to get started";
-		out.textContent = "(Ungenerated)";
+		zone.textContent = 'Click or tap to get started';
+		out.textContent  = '(Ungenerated)';
 
 		// 非チェック時、必ず生成ボタンはenabled状態
 		if(guriCheck.checked){
@@ -133,7 +131,7 @@
 		if(!initialized){
 			initialized = true;
 
-			zone.textContent = "Swipe, Click or Tap, in here.";
+			zone.textContent = 'Swipe, Click or Tap, in here.';
 		} else{
 			addEntropy((e.clientX ^ e.button)|0, (e.clientY ^ Date.now())|0);
 		}
@@ -141,6 +139,8 @@
 
 	// イベントリスナー登録
 	{
+		const PASSIVE_TRUE = { passive: true };
+
 		zone.addEventListener('mousemove', onMouse);
 		zone.addEventListener('mousedown', onClick);
 		zone.addEventListener('touchmove', onTouch, PASSIVE_TRUE);

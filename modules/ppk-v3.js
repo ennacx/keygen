@@ -15,26 +15,26 @@ export class PPKv3 {
 	 * @param {string} [passphrase=""] - The passphrase used for key derivation if encryption is enabled.
 	 * @return {Promise<string>} A promise that resolves to the formatted key bundle as a string.
 	 */
-	static async generate(algorithmName, privPlain, comment, pubBlob, encryption = "none", passphrase = "") {
+	static async generate(algorithmName, privPlain, comment, pubBlob, encryption = 'none', passphrase = '') {
 		// ランダムパディング込みの秘密鍵
 		const privPadded = this.#addRandomPadding(privPlain, 16);
 
 		// Base64用に暗号化or平文
 		let privOut;
 		// Key-Derivation系ヘッダ用
-		let kdLines = "";
+		let kdLines = '';
 		// computeMacに渡すキー
 		let macKey;
 
 		// パスフレーズ指定無し
-		if(encryption === "none" || !passphrase){
+		if(encryption === 'none' || !passphrase){
 			// 平文のまま保存
 			privOut = privPadded;
 			// computeMac側で0x00鍵にフォールバックするために`null`を指定
 			macKey = null;
 		}
 		// パスフレーズ指定あり (AES-256-CBC)
-		else if(encryption === "aes256-cbc"){
+		else if(encryption === 'aes256-cbc'){
 			const d = await this.#argon2KeyDerivation(passphrase, privPadded);
 			privOut = d.privOut;
 			macKey  = d.macKey;
@@ -76,7 +76,7 @@ export class PPKv3 {
 	 */
 	static async #deriveKeys(passphrase) {
 		if(!argon2 || typeof argon2.hash !== 'function'){
-			throw new Error("argon2-browser is required for deriveKeys");
+			throw new Error('argon2-browser is required for deriveKeys');
 		}
 
 		const passBytes = Helper.toUtf8(passphrase);
@@ -210,9 +210,9 @@ export class PPKv3 {
 		 *  ただし空の配列だとWebCryptoの規約違反なので0番目に\x00を入れて違反を回避。
 		 */
 		const keyData = (enc instanceof Uint8Array && enc.length > 0) ? enc : new Uint8Array([0]);
-		const key = await crypto.subtle.importKey("raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-		const sig = await crypto.subtle.sign("HMAC", key, macInput);
-		const mac = new Uint8Array(sig);
+		const key  = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+		const sign = await crypto.subtle.sign('HMAC', key, macInput);
+		const mac  = new Uint8Array(sign);
 
 		return Helper.hexPad(mac);
 	}

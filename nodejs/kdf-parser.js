@@ -1,6 +1,6 @@
-import fs from "fs";
+import fs from 'fs';
 
-const pem = fs.readFileSync(process.argv[2] || "id_rsa.pem", "utf8");
+const pem = fs.readFileSync(process.argv[2] || 'id_rsa.pem', 'utf8');
 
 const toBase64 = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)));
 
@@ -10,18 +10,36 @@ const bufToBigInt = (buf) => {
 		buf = buf.slice(1);
 	}
 
-	return BigInt(`0x${buf.toString("hex")}`);
+	return BigInt(`0x${buf.toString('hex')}`);
 };
 
 const modMul = (a, b, m) => (a * b) % m;
 
+const logger = (msgArray, e = null) => {
+	let msg;
+
+	if(Array.isArray(msgArray)){
+		msg = msgArray.join('\n');
+	} else if(typeof msgArray === 'string'){
+		msg = msgArray;
+	}
+
+	if(msg){
+		if(e === null){
+			console.log(msg);
+		} else{
+			console.error(msg, e);
+		}
+	}
+};
+
 // 1. ヘッダ/フッタを削って base64 デコード
 const b64 = pem
-	.split("\n")
-	.filter((line) => !line.startsWith("-----") && line.trim() !== "")
-	.join("");
+	.split('\n')
+	.filter((line) => !line.startsWith('-----') && line.trim() !== '')
+	.join('');
 
-const buf = Buffer.from(b64, "base64");
+const buf = Buffer.from(b64, 'base64');
 
 let offset = 0;
 const readU32 = () => {
@@ -41,23 +59,23 @@ const readString = () => {
 };
 
 // 2. magic チェック
-const magicLen = "openssh-key-v1".length + 1; // 末尾の0x00分
+const magicLen = 'openssh-key-v1'.length + 1; // 末尾の0x00分
 const magic = buf.slice(0, magicLen);
-console.log(`magic: ${magic.toString("utf8")}`); // "openssh-key-v1\0"
+logger(`magic: ${magic.toString('utf8')}`); // "openssh-key-v1\0"
 
 offset = magicLen;
 
 // 3. cipherName / kdfName / kdfOptions
-const cipherName = readString().toString("utf8");
-const kdfName    = readString().toString("utf8");
+const cipherName = readString().toString('utf8');
+const kdfName    = readString().toString('utf8');
 const kdfOptions = readString();
-console.log([
+logger([
 	`cipherName: ${cipherName}`,
 	`kdfName: ${kdfName}`,
-	`kdfOptions(hex): ${kdfOptions.toString("hex")}`
-].join("\n"));
+	`kdfOptions(hex): ${kdfOptions.toString('hex')}`
+]);
 
-if(kdfName === "bcrypt"){
+if(kdfName === 'bcrypt'){
 	// ここで初めて salt / rounds を中身から読む
 	let koOffset = 0;
 	const readKdfU32 = () => {
@@ -78,25 +96,25 @@ if(kdfName === "bcrypt"){
 
 	const salt   = readKdfString();
 	const rounds = readKdfU32();
-	console.log([
-		`salt(hex): ${salt.toString("hex")}`,
+	logger([
+		`salt(hex): ${salt.toString('hex')}`,
 		`rounds: ${rounds}`
-	].join("\n"));
+	]);
 } else{
 	// kdfName = none の場合は kdfOptions は長さ0
-	console.log("no KDF options (cipherName/kdfName = none)");
+	logger('no KDF options (cipherName/kdfName = none)');
 }
 
 // 5. nKeys と publicKey1, encrypted/plain list を読む
 const nKeys = readU32();
-console.log(`nKeys: ${nKeys}`);
+logger(`nKeys: ${nKeys}`);
 
 // 公開鍵は1個だけを想定
 const publicKey1 = readString();
-console.log([
+logger([
 	`publicKey1 length: ${publicKey1.length} bytes`,
-	`publicKey1(hex head): ${publicKey1.toString("hex").slice(0, 64)}...`
-].join("\n"));
+	`publicKey1(hex head): ${publicKey1.toString('hex').slice(0, 64)}...`
+]);
 
 const readPubU32 = (buf, st) => {
 	const v = buf.readUInt32BE(st.off);
@@ -127,22 +145,26 @@ const a  = readPubString(publicKey1, st);                  // mpint #1
 const b  = readPubString(publicKey1, st);                  // mpint #2
 const A  = mpintToBigInt(a);
 const B  = mpintToBigInt(b);
-console.log([
+logger([
 	`pub keytype: ${kt}`,
 	`mpint#1 len: ${a.length}`,
 	`mpint#2 len: ${b.length}`,
 	`mpint#1: ${A.toString(16)}`,
 	`mpint#2 head: ${b.slice(0, 8).toString('hex')}`
-].join("\n"));
+]);
 
 // 最後の string が encrypted または plain な private list
 const privList = readString();
-console.log(`privList length: ${privList.length} bytes`);
+logger([
+	`privList length: ${privList.length} bytes`
+]);
 
 // 6. cipherName=none の場合は privList をそのままパースして中身を確認
-if(cipherName === "none"){
-	console.log("---- parsing plain private block ----");
+if(cipherName === 'none'){
+	logger('---- parsing plain private block ----');
+
 	let privOffset = 0;
+
 	const readPrivU32 = () => {
 		const v = privList.readUInt32BE(privOffset);
 
@@ -163,23 +185,23 @@ if(cipherName === "none"){
 		// checkInt
 		const check1 = readPrivU32();
 		const check2 = readPrivU32();
-		console.log([
+		logger([
 			`checkInt1: ${check1}`,
 			`checkInt2: ${check2}`
-		].join("\n"));
+		]);
 
 		// key type
-		const keyType = readPrivString().toString("utf8");
-		console.log(`inner keyType: ${keyType}`);
+		const keyType = readPrivString().toString('utf8');
+		logger(`inner keyType: ${keyType}`);
 
 		// inner public blob
-		const innerPublicBlob = readPrivString(); // ← これを追加
-		console.log([
+		const innerPublicBlob = readPrivString();
+		logger([
 			`inner public blob: ${toBase64(innerPublicBlob)}`,
 			`inner public blob length: ${innerPublicBlob.length}`,
 			// ついでに外側 publicKey1 と一致チェック
-			`(inner public blob == publicKey1): ${(innerPublicBlob.equals(publicKey1)) ? "true" : "false"}`,
-		].join("\n"));
+			`(inner public blob == publicKey1): ${(innerPublicBlob.equals(publicKey1)) ? 'true' : 'false'}`,
+		]);
 
 		// mpint
 		const n    = readPrivString();  // mpint n
@@ -194,8 +216,8 @@ if(cipherName === "none"){
 		const IQMP = bufToBigInt(iqmp); // bigint iqmp
 		const P    = bufToBigInt(p);    // bigint p
 		const Q    = bufToBigInt(q);    // bigint q
-		console.log([
-			"----- Mpint values -----",
+		logger([
+			'----- Mpint values -----',
 			`n: ${toBase64(n)}`,
 			`nLen: ${n.length}`, // 256〜257バイト
 			`e: ${toBase64(e)}`,
@@ -208,25 +230,25 @@ if(cipherName === "none"){
 			`pLen: ${p.length}`,
 			`q: ${toBase64(q)}`,
 			`qLen: ${q.length}`,
-			"-------------------------------",
-			`n == p * q ?: ${(N === P * Q) ? "true" : "false"}`,
-			`(q * iqmp) % p == 1 ?: ${(modMul(Q, IQMP, P) === 1n) ? "true" : "false"}`,
-			"-------------------------------"
-		].join("\n"));
+			'-------------------------------',
+			`n == p * q ?: ${(N === P * Q) ? 'true' : 'false'}`,
+			`(q * iqmp) % p == 1 ?: ${(modMul(Q, IQMP, P) === 1n) ? 'true' : 'false'}`,
+			'-------------------------------'
+		]);
 
 		// comment
-		const comment = readPrivString().toString("utf8");
-		console.log(`comment: ${JSON.stringify(comment)}`);
+		const comment = readPrivString().toString('utf8');
+		logger(`comment: ${JSON.stringify(comment)}`);
 
 		// remaining, offset
 		const remaining = privList.length - privOffset;
-		console.log(`remaining bytes (should be padding): ${remaining}`);
+		logger(`remaining bytes (should be padding): ${remaining}`);
 		if(remaining > 0){
-			console.log(`padding(hex): ${privList.slice(privOffset).toString("hex")}`);
+			logger(`padding(hex): ${privList.slice(privOffset).toString('hex')}`);
 		}
 	} catch(e){
-		console.error("error while parsing plain private block:", e);
+		logger('error while parsing plain private block:', e);
 	}
 } else{
-	console.log("cipherName != none → privList は暗号化済みブロック（中身はここではパースしない）");
+	logger("cipherName != none → privList は暗号化済みブロック (中身はここではパースしない)");
 }

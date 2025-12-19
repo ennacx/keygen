@@ -37,8 +37,8 @@ let keygenReduceNum = -1;
  * @returns {Promise<Uint8Array>} A promise that resolves to the ciphertext as a sequence of bytes.
  */
 const aesCbcEncryptRaw = async (keyBytes, ivBytes, plaintext) => {
-	const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-CBC" }, false, ["encrypt"]);
-	const ciphertext = await crypto.subtle.encrypt({ name: "AES-CBC", iv: ivBytes }, key, plaintext);
+	const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['encrypt']);
+	const ciphertext = await crypto.subtle.encrypt({ name: 'AES-CBC', iv: ivBytes }, key, plaintext);
 
 	return new Uint8Array(ciphertext);
 };
@@ -55,7 +55,7 @@ const aesCbcEncryptRaw = async (keyBytes, ivBytes, plaintext) => {
  */
 const aesCbcEncryptRawNoPadding = (keyBytes, ivBytes, plaintext) => {
 	if(!CryptoJS || !CryptoJS.lib.WordArray || typeof CryptoJS.lib.WordArray.create !== 'function'){
-		throw new Error("CryptoJS is required for aesCbcEncryptNoPadding");
+		throw new Error('CryptoJS is required for aesCbcEncryptNoPadding');
 	}
 
 	const keyWA = CryptoJS.lib.WordArray.create(keyBytes);
@@ -105,9 +105,9 @@ const aesCbcEncryptRawNoPadding = (keyBytes, ivBytes, plaintext) => {
  *  - `fingerprint` (string): The fingerprint of the generated key.
  */
 async function generateKey(name, opt, onProgress) {
-	const comment    = (opt.comment && opt.comment !== '') ? opt.comment : "";
+	const comment    = (opt.comment && opt.comment !== '') ? opt.comment : '';
 	const passphrase = (opt.passphrase && opt.passphrase !== '') ? opt.passphrase : null;
-	const encryption = (passphrase !== null) ? "aes256-cbc" : "none";
+	const encryption = (passphrase !== null) ? 'aes256-cbc' : 'none';
 
 	/**
 	 * Represents an asynchronous callback function that retrieves an instance of KeyMaterial.
@@ -180,7 +180,7 @@ async function generateKey(name, opt, onProgress) {
 	 * @returns {string} The formatted OpenSSH public key string.
 	 */
 	const makeOpenSshPubKey = (opt, pubkey, comment) =>
-		`${opt.prefix} ${pubkey}` + ((comment !== undefined && comment !== '') ? ` ${comment}` : "");
+		`${opt.prefix} ${pubkey}` + ((comment !== undefined && comment !== '') ? ` ${comment}` : '');
 
 	// 公開鍵・フィンガープリント・PuTTY-Private-Key
 	let pubBlob;
@@ -189,7 +189,7 @@ async function generateKey(name, opt, onProgress) {
 	let privatePlain;
 
 	switch(name){
-		case "RSA":
+		case 'RSA':
 			const rsaOpenssh = await pubkey.rsa();
 
 			pubBlob = rsaOpenssh.raw;
@@ -199,7 +199,7 @@ async function generateKey(name, opt, onProgress) {
 
 			break;
 
-		case "ECDSA":
+		case 'ECDSA':
 			const ecdsaOpenssh = await pubkey.ecdsa();
 
 			pubBlob = ecdsaOpenssh.raw;

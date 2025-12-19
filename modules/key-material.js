@@ -59,7 +59,7 @@ export class KeyMaterial {
 	 *
 	 * @constant {string} JWK_NO_INIT_ERR_MSG
 	 */
-	JWK_NO_INIT_ERR_MSG = "JSON Web Key (JWK) not found. Call getInstance() first to generate a key pair and export the JWK.";
+	JWK_NO_INIT_ERR_MSG = 'JSON Web Key (JWK) not found. Call getInstance() first to generate a key pair and export the JWK.';
 
 	constructor() {
 		// NOP
@@ -83,15 +83,15 @@ export class KeyMaterial {
 
 		let algo = {};
 		switch(name){
-			case "RSA":
+			case 'RSA':
 				algo = {
-					name: "RSA-PSS",
+					name: 'RSA-PSS',
 					modulusLength: len,
 					publicExponent: new Uint8Array([1, 0, 1]),
-					hash: "SHA-256"
+					hash: 'SHA-256'
 				};
 				break;
-			case "ECDSA":
+			case 'ECDSA':
 				algo = {
 					name: name,
 					namedCurve: curve
@@ -101,15 +101,15 @@ export class KeyMaterial {
 				throw new Error(`Unsupported algorithm: ${name}`);
 		}
 
-		myself.keyPair = await crypto.subtle.generateKey(algo, true, ["sign", "verify"]);
+		myself.keyPair = await crypto.subtle.generateKey(algo, true, ['sign', 'verify']);
 
 		if(!myself.keyPair.publicKey || !myself.keyPair.privateKey){
-			throw new Error("Failed to generate key pair");
+			throw new Error('Failed to generate key pair');
 		}
 
-		myself.spki  = await crypto.subtle.exportKey("spki", myself.keyPair.publicKey);
-		myself.pkcs8 = await crypto.subtle.exportKey("pkcs8", myself.keyPair.privateKey);
-		myself.jwk   = await crypto.subtle.exportKey("jwk", myself.keyPair.privateKey);
+		myself.spki  = await crypto.subtle.exportKey('spki', myself.keyPair.publicKey);
+		myself.pkcs8 = await crypto.subtle.exportKey('pkcs8', myself.keyPair.privateKey);
+		myself.jwk   = await crypto.subtle.exportKey('jwk', myself.keyPair.privateKey);
 
 		return myself;
 	}

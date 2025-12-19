@@ -16,8 +16,8 @@ function download(id, content, filename) {
 	const btn = document.getElementById(id);
 	btn.disabled = false;
 	btn.onclick = () => {
-		const blob = new Blob([content], { type: "application/x-pem-file" });
-		const a = document.createElement("a");
+		const blob = new Blob([content], { type: 'application/x-pem-file' });
+		const a = document.createElement('a');
 		a.href = URL.createObjectURL(blob);
 		a.download = filename;
 		a.click();
@@ -35,10 +35,10 @@ $(() => {
 	const $errorAlert = $('#error-alert');
 
 	const genUiReset = () => {
-		$('pre#pub-fp').text("(Ungenerated)");
-		$('pre#pub-openssh').text("(Ungenerated)");
-		$('pre#pub').text("(Ungenerated)");
-		$('pre#priv').text("(Ungenerated)");
+		$('pre#pub-fp').text('(Ungenerated)');
+		$('pre#pub-openssh').text('(Ungenerated)');
+		$('pre#pub').text('(Ungenerated)');
+		$('pre#priv').text('(Ungenerated)');
 
 		$errorAlert.hide();
 		$errorAlert.empty();
@@ -145,14 +145,14 @@ $(() => {
 
 		const prop = {
 			password: {
-				next: "text",
-				remove: "bi-eye",
-				add: "bi-eye-slash"
+				next: 'text',
+				remove: 'bi-eye',
+				add: 'bi-eye-slash'
 			},
 			text: {
-				next: "password",
-				remove: "bi-eye-slash",
-				add: "bi-eye"
+				next: 'password',
+				remove: 'bi-eye-slash',
+				add: 'bi-eye'
 			}
 		};
 
@@ -194,8 +194,8 @@ $(() => {
 		const opt = {
 			comment: $('input[name="comment"]').val()
 				.trim()                 // 両サイドトリム
-				.replace(/ +/g, "-")    // 文字間スペースをハイフンに
-				.replace(/[^ -~]/g, "") // 半角英数字と記号以外は省く
+				.replace(/ +/g, '-')    // 文字間スペースをハイフンに
+				.replace(/[^ -~]/g, '') // 半角英数字と記号以外は省く
 		};
 
 		const $progress = $('#generate-fill');
@@ -228,11 +228,11 @@ $(() => {
 			const passphrase = $('input[name="passphrase"]').val();
 			const passphrase_c = $('input[name="passphrase_c"]').val();
 
-			if(encType === "pkcs8" && passphrase === ''){
-				$errorAlert.text("Passphrase is required").show();
+			if(encType === 'pkcs8' && passphrase === ''){
+				$errorAlert.text('Passphrase is required').show();
 				return;
 			} else if(passphrase !== passphrase_c){
-				$errorAlert.text("Passphrase does not match").show();
+				$errorAlert.text('Passphrase does not match').show();
 				return;
 			}
 
@@ -250,24 +250,24 @@ $(() => {
 			if($passphraseCheck.prop('checked')){
 				switch(encType){
 					case 'pkcs8':
-						if(opt.passphrase && opt.passphrase !== ""){
+						if(opt.passphrase && opt.passphrase !== ''){
 							const pkcs8pbes2 = new App.PKCS8withPBES2(opt.passphrase);
 							const { encrypted } = await pkcs8pbes2.encrypt(result.material.pkcs8);
 							privatePEM = App.Helper.toPEM(encrypted, App.Helper.PEM_LABEL.privateKey, 64, App.Helper.PEM_LABEL.encryptedAdd);
 						} else{
-							throw new Error("Passphrase is required for PKCS#8 encryption.");
+							throw new Error('Passphrase is required for PKCS#8 encryption.');
 						}
 
 						break;
 					case 'sshv1-cc20p1305':
 					case 'sshv1-aes256ctr':
-						const cipher = encType.replace(/^sshv1-/, "");
+						const cipher = encType.replace(/^sshv1-/, '');
 
 						privatePEM = await App.OpenSSH.makeOpenSSHPrivateKeyV1(
 							cipher,
 							opt.prefix,
 							result.material,
-							opt.passphrase || "",
+							opt.passphrase || '',
 							opt.comment
 						);
 
@@ -286,11 +286,11 @@ $(() => {
 			$('#priv').text(privatePEM);
 
 			// DL用
-			download("dlPub", publicPEM, `id_${al.toLowerCase()}.pub.pem`);
-			download("dlPubOpenSSH", result.openssh, `authorized_keys`);
-			download("dlPriv", privatePEM, `id_${al.toLowerCase()}.pem`);
+			download('dlPub', publicPEM, `id_${al.toLowerCase()}.pub.pem`);
+			download('dlPubOpenSSH', result.openssh, `authorized_keys`);
+			download('dlPriv', privatePEM, `id_${al.toLowerCase()}.pem`);
 			if(result.ppk !== undefined){
-				download("dlPrivPpk", result.ppk, `id_${al.toLowerCase()}.ppk`);
+				download('dlPrivPpk', result.ppk, `id_${al.toLowerCase()}.ppk`);
 			} else{
 				$('#dlPrivPpk').prop('disabled', true);
 			}

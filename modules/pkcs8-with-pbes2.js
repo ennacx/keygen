@@ -52,7 +52,7 @@ export class PKCS8withPBES2 {
 	 * @type {string}
 	 * @constant
 	 */
-	#hash = "SHA-256";
+	#hash = 'SHA-256';
 
 	constructor(passphrase, iterations = 100_000, saltSize = 16) {
 		this.#passphrase = passphrase;
@@ -81,17 +81,17 @@ export class PKCS8withPBES2 {
 		const iv   = crypto.getRandomValues(new Uint8Array(16));
 
 		// ---- PBKDF2でAES-256キーを導出 (PBKDF2-HMAC-SHA256)
-		const baseKey = await crypto.subtle.importKey("raw", Helper.toUtf8(this.#passphrase), "PBKDF2", false, ["deriveKey"]);
+		const baseKey = await crypto.subtle.importKey('raw', Helper.toUtf8(this.#passphrase), 'PBKDF2', false, ['deriveKey']);
 		const aesKey = await crypto.subtle.deriveKey(
-			{ name: "PBKDF2", salt, iterations: this.#iterations, hash: this.#hash },
+			{ name: 'PBKDF2', salt, iterations: this.#iterations, hash: this.#hash },
 			baseKey,
-			{ name: "AES-CBC", length: 256 },
+			{ name: 'AES-CBC', length: 256 },
 			false,
-			["encrypt"]
+			['encrypt']
 		);
 
 		// ---- AES-256-CBC + PKCS#7 padding (WebCrypto Standard)
-		const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-CBC", iv }, aesKey, buffer));
+		const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, aesKey, buffer));
 
 		// ====== ここから ASN.1 (Abstract Syntax Notation 1) 組み立て ======
 
@@ -309,7 +309,7 @@ export class PKCS8withPBES2 {
 	#derOid(oidStr) {
 		const parts = oidStr.split('.').map((x) => parseInt(x, 10));
 		if(parts.length < 2){
-			throw new Error("Invalid OID");
+			throw new Error('Invalid OID');
 		}
 
 		const first = 40 * parts[0] + parts[1];

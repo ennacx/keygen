@@ -73,7 +73,7 @@ export class Parser {
 			const e = this.#bytes.slice(eStart, eStart + eLen);
 
 			return {
-				name: "ssh-rsa",
+				name: 'ssh-rsa',
 				n: n,
 				e: e
 			};
@@ -120,7 +120,7 @@ export class Parser {
 			const bitStrLen = this.#readLen();
 			const unusedBits = this.#bytes[this.#offset++];  // たいてい 0
 			if(unusedBits !== 0){
-				throw new Error("Unexpected unused bits in EC public key");
+				throw new Error('Unexpected unused bits in EC public key');
 			}
 
 			// 残り全部が Q（EC Point）
@@ -130,13 +130,13 @@ export class Parser {
 			let curveName;
 			switch(curveOid){
 				case App.Helper.OID.NIST_P256: // secp256r1
-					curveName = "nistp256";
+					curveName = 'nistp256';
 					break;
 				case App.Helper.OID.NIST_P384: // secp384r1
-					curveName = "nistp384";
+					curveName = 'nistp384';
 					break;
 				case App.Helper.OID.NIST_P521: // secp521r1
-					curveName = "nistp521";
+					curveName = 'nistp521';
 					break;
 				default:
 					throw new Error(`Unsupported EC curve OID: ${curveOid}`);
@@ -229,6 +229,6 @@ export class Parser {
 			}
 		}
 
-		return out.join(".");
+		return out.join('.');
 	}
 }

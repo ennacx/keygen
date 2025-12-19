@@ -12,11 +12,11 @@ export class OpenSSH {
 	 * @return {Promise<string>} A promise that resolves to the base64-encoded SHA-256 fingerprint.
 	 */
 	static async makeFingerprint(blob) {
-		const digest = await crypto.subtle.digest("SHA-256", blob);
+		const digest = await crypto.subtle.digest('SHA-256', blob);
 
 		return App.Bytes.toBase64(digest)
 			// OpenSSH風に末尾の=を削る
-			.replace(/=+$/, "");
+			.replace(/=+$/, '');
 	}
 
 	/**
@@ -38,13 +38,13 @@ export class OpenSSH {
 		const opt = {};
 
 		// RSA
-		if(keyType === "ssh-rsa"){
+		if(keyType === 'ssh-rsa'){
 			const rsa = await pubkey.rsa();
 			pubBlob   = rsa.raw;
 			privBlob  = keyMaterial.rsaPrivatePart();
 		}
 		// ECDSA
-		else if(keyType.startsWith("ecdsa-sha2-")){
+		else if(keyType.startsWith('ecdsa-sha2-')){
 			const ecdsa = await pubkey.ecdsa();
 			pubBlob     = ecdsa.raw;
 			privBlob    = keyMaterial.ecdsaPrivatePart();
@@ -60,7 +60,7 @@ export class OpenSSH {
 			keyType,
 			pubBlob,
 			privBlob,
-			comment || "",
+			comment || '',
 			opt
 		);
 
@@ -71,8 +71,8 @@ export class OpenSSH {
 		// パスフレーズ無しなら暗号化せずにそのまま入れる
 		if(!passphrase){
 			buildMaterial = {
-				cipherName:    "none",
-				kdfName:       "none",
+				cipherName:    'none',
+				kdfName:       'none',
 				kdfOptions:    new Uint8Array(0),
 				publicBlob:    pubBlob,
 				encryptedBlob: plainBlob
@@ -80,7 +80,7 @@ export class OpenSSH {
 		}
 			// ChaCha20-Poly1305
 		// @see https://www.stablelib.com/classes/_stablelib_chacha20poly1305.ChaCha20Poly1305.html
-		else if(cipher === "cc20p1305"){
+		else if(cipher === 'cc20p1305'){
 			// 3. bcrypt-pbkdfでAEADキー導出
 			const kdf = this.#bcryptKdf(passphrase, rounds, 16, 32);
 
@@ -105,26 +105,26 @@ export class OpenSSH {
 			);
 
 			buildMaterial = {
-				cipherName:   "chacha20-poly1305@openssh.com", // FIXME: "@openssh.com"を落とすと即アウト。大文字小文字も区別される
-				kdfName:      "bcrypt",
+				cipherName:   'chacha20-poly1305@openssh.com', // FIXME: "@openssh.com"を落とすと即アウト。大文字小文字も区別される
+				kdfName:      'bcrypt',
 				kdfOptions,
 				publicBlob:   pubBlob,
 				encryptedBlob
 			};
 		}
 		// AES-256-CTR
-		else if(cipher === "aes256ctr"){
+		else if(cipher === 'aes256ctr'){
 			// 3. bcrypt-pbkdfでAEADキー導出
 			const kdf = this.#bcryptKdf(passphrase, rounds, 16, 48);
 
 			// 4. AES-256-CTR で暗号化
 			const aesKeyBytes = kdf.aeadKey.slice(0, 32); // 32バイト分
 			const aesKey = await crypto.subtle.importKey(
-				"raw",
+				'raw',
 				aesKeyBytes,
-				{ name: "AES-CTR", length: 256 },
+				{ name: 'AES-CTR', length: 256 },
 				false,
-				["encrypt"]
+				['encrypt']
 			);
 
 			const iv = kdf.aeadKey.slice(32, 48); // 16バイト分
@@ -132,7 +132,7 @@ export class OpenSSH {
 			const encryptedBlob = new Uint8Array(
 				await crypto.subtle.encrypt(
 					{
-						name: "AES-CTR",
+						name: 'AES-CTR',
 						counter: iv,    // 16bytes
 						length: 128     // カウンタ部のビット長
 					},
@@ -148,8 +148,8 @@ export class OpenSSH {
 			);
 
 			buildMaterial = {
-				cipherName:   "aes256-ctr",
-				kdfName:      "bcrypt",
+				cipherName:   'aes256-ctr',
+				kdfName:      'bcrypt',
 				kdfOptions,
 				publicBlob:   pubBlob,
 				encryptedBlob
@@ -181,7 +181,7 @@ export class OpenSSH {
 		const check = crypto.getRandomValues(new Uint32Array(1))[0];
 
 		let core;
-		if(keyType === "ssh-rsa"){
+		if(keyType === 'ssh-rsa'){
 			core = App.Bytes.concat(
 				rfc4253.writeUint32(check),     // uint32     checkint1
 				rfc4253.writeUint32(check),     // uint32     checkint2
@@ -190,12 +190,12 @@ export class OpenSSH {
 				privatePart,                    // Uint8Array private key fields (鍵種別ごとの生フィールド)
 				rfc4253.writeString(comment)    // string     comment
 			);
-		} else if(keyType.startsWith("ecdsa-sha2-") && opt.Q instanceof Uint8Array){
+		} else if(keyType.startsWith('ecdsa-sha2-') && opt.Q instanceof Uint8Array){
 			core = App.Bytes.concat(
 				rfc4253.writeUint32(check),      // uint32     checkint1
 				rfc4253.writeUint32(check),      // uint32     checkint2
 				rfc4253.writeString(keyType),    // string     key type ("ecdsa-sha2-nisp256" など)
-				rfc4253.writeString(keyType.replace("ecdsa-sha2-", "")),   // string     curve ("nisp256" など)
+				rfc4253.writeString(keyType.replace('ecdsa-sha2-', '')),   // string     curve ("nisp256" など)
 				rfc4253.writeStringBytes(opt.Q), // Q
 				privatePart,                     // Uint8Array private key fields (鍵種別ごとの生フィールド)
 				rfc4253.writeString(comment)     // string     comment
@@ -240,7 +240,7 @@ export class OpenSSH {
 		 */
 
 		const magic = App.Bytes.concat(
-			Helper.toUtf8("openssh-key-v1"),
+			Helper.toUtf8('openssh-key-v1'),
 			new Uint8Array([0x00])
 		);
 
@@ -276,14 +276,14 @@ export class OpenSSH {
 	 */
 	static #bcryptKdf = (passphrase, rounds = 16, saltLen = 16, returnBufferLen = 32) => {
 		if(!CdnApp.bcryptPbkdf || typeof CdnApp.bcryptPbkdf.pbkdf !== 'function'){
-			throw new Error("bcrypt-pbkdf not found");
+			throw new Error('bcrypt-pbkdf not found');
 		} else if(!passphrase){
-			throw new Error("Empty passphrase");
+			throw new Error('Empty passphrase');
 		}
 
 		const passBytes = Helper.toUtf8(passphrase);
 		const saltBytes = crypto.getRandomValues(new Uint8Array(saltLen));
-//		const saltBytes = Uint8Array.from("1234567890abcdef1234567890abcdef".match(/.{2}/g).map((h) => parseInt(h, 16))); // salt固定のテスト用
+//		const saltBytes = Uint8Array.from('1234567890abcdef1234567890abcdef'.match(/.{2}/g).map((h) => parseInt(h, 16))); // salt固定のテスト用
 		const aeadKey   = new Uint8Array(returnBufferLen);
 
 		// bcrypt-pbkdf.pbkdf(pass, passlen, salt, saltlen, key, keylen, rounds)
@@ -298,8 +298,8 @@ export class OpenSSH {
 		);
 
 		console.log(Helper.implode([
-			"AEAD-Key Hex Dump:",
-			[...aeadKey].map((b) => b.toString(16).padStart(2, "0")).join("")
+			'AEAD-Key Hex Dump:',
+			App.Helper.hexPad(aeadKey)
 		]));
 
 		return { salt: saltBytes, aeadKey };

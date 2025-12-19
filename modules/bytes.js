@@ -42,7 +42,7 @@ export class Bytes {
 
 		let s = b64.replace(/\-/g, '+').replace(/_/g, '/');
 		while(s.length % 4 > 0){
-			s += "=";
+			s += '=';
 		}
 
 		const decoded = atob(s);
