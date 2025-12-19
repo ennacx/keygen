@@ -6,6 +6,6 @@
     "esbuild": "^0.25.0"
   },
   "scripts": {
-    "build": "esbuild modules/bridge.js --bundle --minify --sourcemap --format=esm --target=es2020 --outfile=dist/app.js"
+    "build": "esbuild modules/bridge.js --bundle --minify --sourcemap=inline --format=esm --target=es2020 --outfile=dist/app.js"
   }
 }

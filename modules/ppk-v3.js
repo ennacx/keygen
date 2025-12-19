@@ -5,24 +5,17 @@
  */
 export class PPKv3 {
 	/**
-	 * Generates an RSA PPK (PuTTY Private Key) file in the format of PuTTY-User-Key-File-3.
+	 * Generates a formatted cryptographic key bundle based on the provided parameters.
 	 *
-	 * @async
-	 * @static
-	 * @param {string} algorithmName - The name of the encryption algorithm to be used (e.g., ssh-rsa).
-	 * @param {KeyMaterial} keyMaterial - An object containing the RSA key pair. It must include the private key.
-	 * @param {string} comment - A textual comment to include in the PPK file.
-	 * @param {Uint8Array} pubBlob - RSA public key.
-	 * @param {string} [encryption="none"] - Specifies the encryption type for the private key. Defaults to "none".
-	 * @param {string} [passphrase=""] - Specifies the passphrase. Defaults to "".
-	 * @returns {Promise<string>} A string representing the complete contents of the PPK file.
+	 * @param {string} algorithmName - The name of the cryptographic algorithm being used.
+	 * @param {Uint8Array} privPlain - The raw private key data in plaintext.
+	 * @param {string} comment - An optional comment or metadata to include in the output.
+	 * @param {Uint8Array} pubBlob - The public key data as a binary blob.
+	 * @param {string} [encryption="none"] - The encryption method to use for the private key (e.g., "none" or "aes256-cbc").
+	 * @param {string} [passphrase=""] - The passphrase used for key derivation if encryption is enabled.
+	 * @return {Promise<string>} A promise that resolves to the formatted key bundle as a string.
 	 */
-	static async makeRsaPpkV3(algorithmName, keyMaterial, comment, pubBlob, encryption = "none", passphrase = "") {
-		const pubB64 = App.Bytes.toBase64(pubBlob);
-
-		// 平文の秘密鍵blob
-		const privPlain = keyMaterial.rsaPrivatePartPPKv3();
-
+	static async generate(algorithmName, privPlain, comment, pubBlob, encryption = "none", passphrase = "") {
 		// ランダムパディング込みの秘密鍵
 		const privPadded = this.#addRandomPadding(privPlain, 16);
 
@@ -44,84 +37,6 @@ export class PPKv3 {
 		else if(encryption === "aes256-cbc"){
 			const d = await this.#argon2KeyDerivation(passphrase, privPadded);
 			privOut = d.privOut;
-			macKey = d.macKey;
-			kdLines = d.kdLines;
-		}
-		// その他
-		else{
-			throw new Error(`Unsupported encryption: ${encryption}`);
-		}
-
-		const privB64      = App.Bytes.toBase64(privOut);
-		const pubLines     = App.Helper.stringWrap(pubB64);
-		const privLines    = App.Helper.stringWrap(privB64);
-		const pubLineCount = App.Helper.lineCount(pubLines);
-		const prvLineCount = App.Helper.lineCount(privLines);
-
-		// MACは常に「平文＋パディング側」を入力にする！
-		const macHex = await this.#computeMac(
-			algorithmName,
-			encryption,
-			comment,
-			pubBlob,
-			privPadded,
-			macKey
-		);
-
-		// FIXME: 順番重要
-		return App.Helper.implode([
-			`PuTTY-User-Key-File-3: ${algorithmName}`,
-			`Encryption: ${encryption}`,
-			`Comment: ${comment}`,
-			`Public-Lines: ${pubLineCount}`,
-			`${pubLines}`,
-			kdLines,
-			`Private-Lines: ${prvLineCount}`,
-			`${privLines}`,
-			`Private-MAC: ${macHex}`
-		]);
-	}
-
-	/**
-	 * Generates an ECDSA PPK (PuTTY Private Key) file in the format of PuTTY-User-Key-File-3.
-	 *
-	 * @async
-	 * @static
-	 * @param {string} algorithmName - The name of the encryption algorithm to be used (e.g., ecdsa-sha2-nistp2256).
-	 * @param {KeyMaterial} keyMaterial - An object containing the ECDSA key pair. It must include the private key.
-	 * @param {string} comment - A textual comment to include in the PPK file.
-	 * @param {Uint8Array} pubBlob - ECDSA public key.
-	 * @param {string} [encryption="none"] - Specifies the encryption type for the private key. Defaults to "none".
-	 * @param {string} [passphrase=""] - Specifies the passphrase. Defaults to "".
-	 * @returns {Promise<string>} A string representing the complete contents of the PPK file.
-	 */
-	static async makeEcdsaPpkV3(algorithmName, keyMaterial, comment, pubBlob, encryption = "none", passphrase = "") {
-		const pubB64 = App.Bytes.toBase64(pubBlob);
-
-		// 平文の秘密鍵blob
-		const privPlain = keyMaterial.ecdsaPrivatePart();
-		// ランダムパディング込みの秘密鍵
-		const privPadded = this.#addRandomPadding(privPlain, 16);
-
-		// Base64用に暗号化or平文
-		let privOut;
-		// Key-Derivation系ヘッダ用
-		let kdLines = "";
-		// computeMacに渡すキー
-		let macKey;
-
-		// パスフレーズ指定無し
-		if(encryption === "none" || !passphrase){
-			// 平文のまま保存
-			privOut = privPadded;
-			// computeMac側で0x00鍵にフォールバックするために`null`を指定
-			macKey = null;
-		}
-		// パスフレーズ指定あり (AES-256-CBC)
-		else if(encryption === "aes256-cbc"){
-			const d = await this.#argon2KeyDerivation(passphrase, privPadded);
-
-			privOut = d.privOut
 			macKey  = d.macKey;
 			kdLines = d.kdLines;
 		}
@@ -130,14 +45,9 @@ export class PPKv3 {
 			throw new Error(`Unsupported encryption: ${encryption}`);
 		}
 
-		const privB64      = App.Bytes.toBase64(privOut);
-		const pubLines     = Helper.stringWrap(pubB64);
-		const privLines    = Helper.stringWrap(privB64);
-		const pubLineCount = Helper.lineCount(pubLines);
-		const prvLineCount = Helper.lineCount(privLines);
-
-		// MACは常に「平文＋パディング側」を入力にする！
-		const macHex = await this.#computeMac(
+		const pubB64  = App.Bytes.toBase64(pubBlob);
+		const privB64 = App.Bytes.toBase64(privOut);
+		const macHex  = await this.#computeMac(
 			algorithmName,
 			encryption,
 			comment,
@@ -146,18 +56,7 @@ export class PPKv3 {
 			macKey
 		);
 
-		// FIXME: 順番重要
-		return App.Helper.implode([
-			`PuTTY-User-Key-File-3: ${algorithmName}`,
-			`Encryption: ${encryption}`,
-			`Comment: ${comment}`,
-			`Public-Lines: ${pubLineCount}`,
-			`${pubLines}`,
-			kdLines,
-			`Private-Lines: ${prvLineCount}`,
-			`${privLines}`,
-			`Private-MAC: ${macHex}`
-		]);
+		return this.#output(algorithmName, encryption, comment, pubB64, privB64, macHex, kdLines);
 	}
 
 	/**
@@ -295,6 +194,7 @@ export class PPKv3 {
 	 * @returns {Promise<string>} Resolves to a hexadecimal string representation of the computed MAC.
 	 */
 	static async #computeMac(algorithmName, encryption, comment, pubBlob, privBlob, enc = null) {
+		// MACは常に「平文＋パディング側」を入力にする！
 		const macInput = App.Bytes.concat(
 			rfc4253.writeString(algorithmName),
 			rfc4253.writeString(encryption),
@@ -303,7 +203,7 @@ export class PPKv3 {
 			rfc4253.writeStringBytes(privBlob)
 		);
 
-		// Encryption:none の場合は`enc = null`
+		// Encryption:none の場合は`enc = null`で0x00鍵にフォールバック
 		/*
 		 * FIXME:
 		 *  PPKv3のMACは「鍵の秘密性」ではなく「改ざん検出」用途なので、PuTTY側もHMACのkey=""とkey="\x00"を区別していない。
@@ -315,5 +215,37 @@ export class PPKv3 {
 		const mac = new Uint8Array(sig);
 
 		return Helper.hexPad(mac);
+	}
+
+	/**
+	 * Constructs and returns a formatted string output based on the provided parameters.
+	 *
+	 * @param {string} algorithmName - The name of the algorithm used.
+	 * @param {string} encryption - The encryption method or status.
+	 * @param {string} comment - A descriptive comment associated with the key file.
+	 * @param {string} pubB64 - The base64 encoded public key data.
+	 * @param {string} privB64 - The base64 encoded private key data.
+	 * @param {string} macHex - The hexadecimal MAC (Message Authentication Code) for verification.
+	 * @param {string} kdLines - Additional key derivation-related lines, if any.
+	 * @return {string} A formatted string representing the PuTTY user key file data.
+	 */
+	static #output(algorithmName, encryption, comment, pubB64, privB64, macHex, kdLines) {
+		const pubLines     = Helper.stringWrap(pubB64);
+		const privLines    = Helper.stringWrap(privB64);
+		const pubLineCount = Helper.lineCount(pubLines);
+		const prvLineCount = Helper.lineCount(privLines);
+
+		// FIXME: 順番重要
+		return App.Helper.implode([
+			`PuTTY-User-Key-File-3: ${algorithmName}`,
+			`Encryption: ${encryption}`,
+			`Comment: ${comment}`,
+			`Public-Lines: ${pubLineCount}`,
+			`${pubLines}`,
+			kdLines,
+			`Private-Lines: ${prvLineCount}`,
+			`${privLines}`,
+			`Private-MAC: ${macHex}`
+		]);
 	}
 }

@@ -491,28 +491,35 @@ async function generateKey(name, opt, onProgress) {
 		`${opt.prefix} ${pubkey}` + ((comment !== undefined && comment !== '') ? ` ${comment}` : "");
 
 	// 公開鍵・フィンガープリント・PuTTY-Private-Key
+	let pubBlob;
 	let opensshPubkey;
 	let opensshFingerprint;
-	let ppk;
+	let privatePlain;
+
 	switch(name){
 		case "RSA":
 			const rsaOpenssh = await pubkey.rsa();
 
-			opensshPubkey = makeOpenSshPubKey(opt, rsaOpenssh.pubkey, comment);
+			pubBlob = rsaOpenssh.raw;
+			opensshPubkey      = makeOpenSshPubKey(opt, rsaOpenssh.pubkey, comment);
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${rsaOpenssh.fingerprint}`;
-			ppk = await App.PPKv3.makeRsaPpkV3(opt.prefix, keyMaterial, comment, rsaOpenssh.raw, encryption, passphrase);
+			privatePlain       = keyMaterial.rsaPrivatePartPPKv3();
 
 			break;
 
 		case "ECDSA":
 			const ecdsaOpenssh = await pubkey.ecdsa();
 
-			opensshPubkey = makeOpenSshPubKey(opt, ecdsaOpenssh.pubkey, comment);
+			pubBlob = ecdsaOpenssh.raw;
+			opensshPubkey      = makeOpenSshPubKey(opt, ecdsaOpenssh.pubkey, comment);
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${ecdsaOpenssh.fingerprint}`;
-			ppk = await App.PPKv3.makeEcdsaPpkV3(opt.prefix, keyMaterial, comment, ecdsaOpenssh.raw, encryption, passphrase);
+			privatePlain       = keyMaterial.ecdsaPrivatePart();
 
 			break;
 	}
+
+	// PPKの生成
+	const ppk = await App.PPKv3.generate(opt.prefix, privatePlain, comment, pubBlob, encryption, passphrase);
 
 	return {
 		material: keyMaterial,

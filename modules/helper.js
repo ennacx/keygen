@@ -101,14 +101,21 @@ export class Helper {
 	}
 
 	/**
-	 * Joins the elements of an array into a single string, separated by a specified delimiter.
+	 * Combines an array of strings into a single string, with elements separated by a specified separator.
+	 * Optionally filters out empty lines before combining.
 	 *
-	 * @param {Array} arr - The array of elements to be joined.
-	 * @param {string} [sep="\n"] - The delimiter to separate the array elements.
-	 * @return {string} The resulting string formed by concatenating the array elements with the specified delimiter.
+	 * @param {string[]} array - The array of strings to be concatenated.
+	 * @param {Object} [opt] - Optional settings for concatenation.
+	 * @param {string} [opt.separator="\n"] - The string used to separate the array elements.
+	 * @param {boolean} [opt.ignoreEmptyLines=true] - A flag indicating whether empty strings should be ignored.
+	 * @return {string} - The concatenated string with specified separator and optional filtering applied.
 	 */
-	static implode(arr, sep = "\n") {
-		return arr.join(sep);
+	static implode(array, opt = {separator: "\n", ignoreEmptyLines: true}) {
+		if(opt.ignoreEmptyLines){
+			array = array.filter((e) => e !== "");
+		}
+
+		return array.filter((e) => typeof e === 'string' || e instanceof String).join(opt.separator ?? "\n");
 	}
 
 	/**
