@@ -39,7 +39,7 @@ export class PubKey {
 		return {
 			raw: blob,
 			pubkey: App.Bytes.toBase64(blob),
-			fingerprint: await makeFingerprint(blob)
+			fingerprint: await App.OpenSSH.makeFingerprint(blob)
 		};
 	}
 
@@ -63,7 +63,7 @@ export class PubKey {
 		return {
 			raw: blob,
 			pubkey: App.Bytes.toBase64(blob),
-			fingerprint: await makeFingerprint(blob)
+			fingerprint: await App.OpenSSH.makeFingerprint(blob)
 		};
 	}
 }

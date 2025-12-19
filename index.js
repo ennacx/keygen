@@ -263,7 +263,7 @@ $(() => {
 					case 'sshv1-aes256ctr':
 						const cipher = encType.replace(/^sshv1-/, "");
 
-						privatePEM = await makeOpenSSHPrivateKeyV1(
+						privatePEM = await App.OpenSSH.makeOpenSSHPrivateKeyV1(
 							cipher,
 							opt.prefix,
 							result.material,

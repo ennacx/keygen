@@ -102,7 +102,7 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 				getSeed().then((d) => {
 					keygenReduceNum = d.reduce((a, b) => a ^ b, 0);
 
-					out.textContent = `Seed (SHA-256):\n${toHex(d)}`;
+					out.textContent = toHex(d);
 
 					btnGen.click();
 				});
