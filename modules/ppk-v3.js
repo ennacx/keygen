@@ -75,7 +75,7 @@ export class PPKv3 {
 	 * @throws {Error} Throws an error if the `argon2-browser` library is not loaded or missing necessary functionality.
 	 */
 	static async #deriveKeys(passphrase) {
-		if(!argon2 || typeof argon2.hash !== 'function'){
+		if(!CdnApp.Argon2 || typeof CdnApp.Argon2.hash !== 'function'){
 			throw new Error('argon2-browser is required for deriveKeys');
 		}
 
@@ -88,14 +88,14 @@ export class PPKv3 {
 		const salt = crypto.getRandomValues(new Uint8Array(16));
 
 		// argon2でハッシュ化
-		const out = await argon2.hash({
+		const out = await CdnApp.Argon2.hash({
 			pass: passBytes,
 			salt,
 			time: passes,
 			mem: memory,
 			parallelism,
 			hashLen: 80,
-			type: argon2.ArgonType.Argon2id,
+			type: CdnApp.Argon2.ArgonType.Argon2id,
 			raw: true
 		}); // Uint8Array(80)
 

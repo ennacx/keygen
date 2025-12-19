@@ -54,18 +54,18 @@ const aesCbcEncryptRaw = async (keyBytes, ivBytes, plaintext) => {
  * @throws {Error} If the CryptoJS library is not available or properly initialized.
  */
 const aesCbcEncryptRawNoPadding = (keyBytes, ivBytes, plaintext) => {
-	if(!CryptoJS || !CryptoJS.lib.WordArray || typeof CryptoJS.lib.WordArray.create !== 'function'){
+	if(!CdnApp.CryptoJS || !CdnApp.CryptoJS.lib.WordArray || typeof CdnApp.CryptoJS.lib.WordArray.create !== 'function'){
 		throw new Error('CryptoJS is required for aesCbcEncryptNoPadding');
 	}
 
-	const keyWA = CryptoJS.lib.WordArray.create(keyBytes);
-	const ivWA  = CryptoJS.lib.WordArray.create(ivBytes);
-	const ptWA  = CryptoJS.lib.WordArray.create(plaintext);
+	const keyWA = CdnApp.CryptoJS.lib.WordArray.create(keyBytes);
+	const ivWA  = CdnApp.CryptoJS.lib.WordArray.create(ivBytes);
+	const ptWA  = CdnApp.CryptoJS.lib.WordArray.create(plaintext);
 
-	const enc = CryptoJS.AES.encrypt(ptWA, keyWA, {
+	const enc = CdnApp.CryptoJS.AES.encrypt(ptWA, keyWA, {
 		iv: ivWA,
-		mode: CryptoJS.mode.CBC,
-		padding: CryptoJS.pad.NoPadding // 必ずNoPaddingで！
+		mode: CdnApp.CryptoJS.mode.CBC,
+		padding: CdnApp.CryptoJS.pad.NoPadding // 必ずNoPaddingで！
 	});
 
 	// Crypto-JSはWord単位(32bit BigEndian)なので、Byteで分けていく (e.g., 0x11223344 → [0x11, 0x22, 0x33, 0x44])

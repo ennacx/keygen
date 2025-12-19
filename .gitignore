@@ -1,4 +1,7 @@
 /.idea/
 /dist/
+/node_modules/
 /vendor/
 service-worker.js
+app.js
+app.js.map

@@ -2,10 +2,18 @@
   "name": "keygen",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@noble/curves": "^2.0.1",
+    "@stablelib/chacha20poly1305": "^2.0.1",
+    "argon2-browser": "^1.18.0",
+    "bcrypt-pbkdf": "^1.0.2",
+    "crypto-js": "^4.2.0"
+  },
   "devDependencies": {
     "esbuild": "^0.25.0"
   },
   "scripts": {
-    "build": "esbuild modules/bridge.js --bundle --minify --sourcemap=inline --format=esm --target=es2020 --outfile=dist/app.js"
+    "build": "esbuild modules/bridge.js --bundle --minify --sourcemap=inline --format=esm --target=es2020 --loader:.wasm=file --asset-names=assets/[name]-[hash] --outfile=dist/app.js",
+    "dev": "esbuild modules/bridge.js --bundle --watch --sourcemap --format=esm --target=es2020 --loader:.wasm=file --asset-names=assets/[name]-[hash] --outfile=app.js"
   }
 }

@@ -86,7 +86,7 @@ export class OpenSSH {
 
 			// 4. ChaCha20-Poly1305 で暗号化
 			const nonce = crypto.getRandomValues(new Uint8Array(12)); // RFC7539ではノンス(iv)長は12バイトを指定
-			const aead  = new CdnApp.Chacha20poly1305(kdf.aeadKey); // AEAD (Authenticated Encryption with Associated Data)
+			const aead  = new CdnApp.ChaCha20Poly1305(kdf.aeadKey); // AEAD (Authenticated Encryption with Associated Data)
 			const aad   = new Uint8Array(0); // 現状AADに突っ込むものがないので空のまま
 
 			const sealed = new Uint8Array(plainBlob.length + 16); // ciphertext || tag (末尾16バイトがタグ) FIXME: 必ずpadding後に暗号化
@@ -275,7 +275,7 @@ export class OpenSSH {
 	 * @see https://app.unpkg.com/bcrypt-pbkdf@1.0.2/files/README.md
 	 */
 	static #bcryptKdf = (passphrase, rounds = 16, saltLen = 16, returnBufferLen = 32) => {
-		if(!CdnApp.bcryptPbkdf || typeof CdnApp.bcryptPbkdf.pbkdf !== 'function'){
+		if(!CdnApp.PBKDF || typeof CdnApp.PBKDF.pbkdf !== 'function'){
 			throw new Error('bcrypt-pbkdf not found');
 		} else if(!passphrase){
 			throw new Error('Empty passphrase');
@@ -287,7 +287,7 @@ export class OpenSSH {
 		const aeadKey   = new Uint8Array(returnBufferLen);
 
 		// bcrypt-pbkdf.pbkdf(pass, passlen, salt, saltlen, key, keylen, rounds)
-		CdnApp.bcryptPbkdf.pbkdf(
+		CdnApp.PBKDF.pbkdf(
 			passBytes,
 			passBytes.length,
 			saltBytes,
