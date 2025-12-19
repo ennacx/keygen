@@ -1,16 +1,3 @@
-/**
- * Converts a Uint8Array into a hexadecimal string representation.
- *
- * The function iterates over each byte in the input Uint8Array, converts
- * each byte into its corresponding 2-character hexadecimal string, and
- * concatenates them into a single string. Each hexadecimal string is
- * zero-padded to ensure it is exactly 2 characters long.
- *
- * @param {Uint8Array} u8arr - The input array of 8-bit unsigned integers to be converted into a hexadecimal string.
- * @returns {string} A string containing the hexadecimal representation of the input Uint8Array.
- */
-const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).join('');
-
 (() => {
 	// 目標ビット数 (2bits/ev見積 ⇒ 128サンプル ≒ 256bits)
 	const TARGET_BITS = 256;
@@ -34,25 +21,6 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 	const out = document.getElementById('guri2-out');
 	const btnGen = document.getElementById('generate-button');
 	const btnReset = document.getElementById('gen-reset-button');
-
-	/**
-	 * Asynchronously generates and returns a 256-bit (32-byte) seed material.
-	 *
-	 * This function hashes the global entropy pool (`POOL`) using the SHA-256
-	 * algorithm provided by the Web Cryptography API. The resulting hash is
-	 * returned as a `Uint8Array`, which can be used as seed material for further
-	 * cryptographic operations.
-	 *
-	 * @function
-	 * @returns {Promise<Uint8Array>} A promise that resolves to a 256-bit Uint8Array,
-	 * representing the hashed output of the entropy pool.
-	 */
-	const getSeed = async () => {
-		const digest = await crypto.subtle.digest('SHA-256', POOL);
-
-		// 集めたプールをハッシュ化 (seedマテリアルとして扱える256bit(32byte))
-		return new Uint8Array(digest);
-	};
 
 	/**
 	 * Adds entropy to the random number generation pool by incorporating various
@@ -94,16 +62,27 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 		if(collectedBits >= TARGET_BITS){
 			if(!done){
 				done = true;
-				zone.textContent = "収集完了！";
-				status.textContent = `${TARGET_BITS}bit分のエントロピーを収集しました。`;
+
+				zone.textContent = "Collect completed!";
+				status.textContent = `${TARGET_BITS} bits of entropy were collected.`;
 
 				btnGen.disabled = false;
 
-				getSeed().then((d) => {
+				const base = POOL.slice(0, TARGET_BITS);
+
+				console.log(Helper.implode([
+					'Seed:',
+					App.Bytes.toBase64(base)
+				]));
+
+				App.Bytes.generateSeed(base).then((d) => {
+					// Seedは選定用に使用
 					keygenReduceNum = d.reduce((a, b) => a ^ b, 0);
 
-					out.textContent = toHex(d);
+					// Seed表示
+					out.textContent = App.Helper.hexPad(d);
 
+					// 生成ボタン押下ギミックで発火
 					btnGen.click();
 				});
 			}
@@ -112,33 +91,15 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 		}
 	};
 
-	const onMouse = (e) => {
-		if(initialized){
-			addEntropy(e.clientX|0, e.clientY|0);
-		}
-	};
-	const onTouch = (e) => {
-		if(initialized){
-			for(const t of e.touches){
-				addEntropy(t.clientX|0, t.clientY|0);
-			}
-		}
-	};
-	const onClick = (e) => {
-		if(!initialized){
-			initialized = true;
-
-			zone.textContent = "Swipe, Click or Tap, in here.";
-		} else{
-			addEntropy((e.clientX ^ e.button)|0, (e.clientY ^ Date.now())|0);
-		}
-	};
-
 	/*
 	 * ぐりぐりリセット
 	 */
 	const guri2Reset = () => {
-		POOL.fill(0);
+		POOL.fill(0);console.log(Helper.implode([
+			'Seed:',
+			App.Bytes.toBase64(POOL)
+		]));
+
 		initialized = false;
 		writeIdx = 0;
 		collectedBits = 0;
@@ -155,12 +116,39 @@ const toHex = (u8arr) => [...u8arr].map((b) => b.toString(16).padStart(2, '0')).
 		}
 	};
 
-	zone.addEventListener('mousemove', onMouse);
-	zone.addEventListener('mousedown', onClick);
-	zone.addEventListener('touchmove', onTouch, PASSIVE_TRUE);
-	zone.addEventListener('touchstart', onTouch, PASSIVE_TRUE);
+	const onMouse = (e) => {
+		if(initialized){
+			addEntropy(e.clientX|0, e.clientY|0);
+		}
+	};
+	const onTouch = (e) => {
+		if(initialized){
+			for(const t of e.touches){
+				addEntropy(t.clientX|0, t.clientY|0);
+			}
+		}
+	};
+	const onClick = (e) => {
+		// 初回クリックでエントロピー取得出来るようフラグを立てる
+		if(!initialized){
+			initialized = true;
 
-	btnReset.addEventListener('click', guri2Reset);
+			zone.textContent = "Swipe, Click or Tap, in here.";
+		} else{
+			addEntropy((e.clientX ^ e.button)|0, (e.clientY ^ Date.now())|0);
+		}
+	};
 
+	// イベントリスナー登録
+	{
+		zone.addEventListener('mousemove', onMouse);
+		zone.addEventListener('mousedown', onClick);
+		zone.addEventListener('touchmove', onTouch, PASSIVE_TRUE);
+		zone.addEventListener('touchstart', onTouch, PASSIVE_TRUE);
+
+		btnReset.addEventListener('click', guri2Reset);
+	}
+
+	// 初回リセット
 	guri2Reset();
 })();

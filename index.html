@@ -119,24 +119,28 @@
                 <label for="guri2view" class="form-check-label">PuTTYgenライクなぐりぐりを使用する</label>
             </div>
 
-            <div id="guri2-field" style="display: none;">
-                <h5>🌀 マウス（or 指）をここで動かしてエントロピー収集</h5>
-                <div id="guri2-zone">クリック / タップで開始</div>
-                <div id="guri2-progress-bar" class="progress-bar mt-2">
-                    <div id="guri2-fill" class="progress-fill"></div>
+            <div id="guri2-field" class="card" style="display: none;">
+                <div class="card-body">
+                    <h5>🌀 マウス（or 指）をここで動かしてエントロピー収集</h5>
+                    <div id="guri2-zone">クリック / タップで開始</div>
+                    <div id="guri2-progress-bar" class="progress-bar mt-2">
+                        <div id="guri2-fill" class="progress-fill"></div>
+                    </div>
+
+                    <div class="d-flex mt-2">
+                        <div id="guri2-status" class="ms-auto"></div>
+                    </div>
+
+                    <div class="mt-2">
+                        <!-- このseedは鍵生成の採用選択や保存時マスクなどに利用 -->
+                        <h4 class="pre-title">Seed🌱&nbsp;(SHA-256)</h4>
+                        <pre id="guri2-out" class="result-mono mt-2">(Ungenerated)</pre>
+
+                        <p class="d-none">
+                            生成したシードはWebCryptoのgenerateKeyに渡せないため、選別用に使用します。
+                        </p>
+                    </div>
                 </div>
-
-                <div class="d-flex mt-2">
-                    <div id="guri2-status" class="ms-auto"></div>
-                </div>
-
-                <h4 class="pre-title">Seed🌱&nbsp;(SHA-256)</h4>
-                <pre id="guri2-out" class="result-mono mt-2">(Ungenerated)</pre>
-
-                <p class="d-none">
-                    生成したシードはWebCryptoのgenerateKeyに渡せないため、選別用に使用します。
-                    このseedは鍵生成の“採用選択”や保存時マスクなどに利用。
-                </p>
             </div>
         </fieldset>
 
@@ -150,7 +154,7 @@
                 <div id="generate-fill" class="progress-fill"></div>
             </div>
 
-            <div id="error-alert" class="alert alert-danger mt-3" role="alert" style="display: none;">aaa</div>
+            <div id="error-alert" class="alert alert-danger mt-3" role="alert" style="display: none;"></div>
         </fieldset>
 
         <fieldset id="result" class="mt-5">

@@ -53,4 +53,18 @@ export class Bytes {
 
 		return buffer;
 	}
+
+	/**
+	 * Generates a hashed seed from the input buffer using the specified algorithm.
+	 *
+	 * @param {ArrayBuffer} buffer - The input buffer to hash.
+	 * @param {string} [algo='SHA-256'] - The hashing algorithm to use. Defaults to 'SHA-256'.
+	 * @return {Promise<Uint8Array>} A promise that resolves to a Uint8Array containing the hashed seed.
+	 */
+	static async generateSeed(buffer, algo = 'SHA-256') {
+		const digest = await crypto.subtle.digest(algo, buffer);
+
+		// 集めたプールをハッシュ化 (seedマテリアルとして扱える256bit(32byte))
+		return new Uint8Array(digest);
+	};
 }

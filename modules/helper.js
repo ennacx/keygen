@@ -59,7 +59,7 @@ export class Helper {
 	 * @returns {string} A concatenated hexadecimal string representing the numeric values.
 	 */
 	static hexPad(arr){
-		return [...arr].map((b) => b.toString(16).padStart(2, "0")).join("");
+		return [...arr].map((b) => b.toString(16).padStart(2, "0")).join('');
 	}
 
 	/**
