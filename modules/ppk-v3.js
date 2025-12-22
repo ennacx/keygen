@@ -1,4 +1,9 @@
+// CDN
 import argon2 from "argon2-browser/dist/argon2-bundled.min.js";
+// Local
+import { Bytes } from "./bytes.js";
+import { Helper } from "./helper.js";
+import { RFC4253 } from "./rfc4253.js";
 
 /**
  * Represents the PPKv3 class, which provides functionality to generate RSA and ECDSA
@@ -47,8 +52,8 @@ export class PPKv3 {
 			throw new Error(`Unsupported encryption: ${encryption}`);
 		}
 
-		const pubB64  = App.Bytes.toBase64(pubBlob);
-		const privB64 = App.Bytes.toBase64(privOut);
+		const pubB64  = Bytes.toBase64(pubBlob);
+		const privB64 = Bytes.toBase64(privOut);
 		const macHex  = await this.#computeMac(
 			algorithmName,
 			encryption,
@@ -145,7 +150,7 @@ export class PPKv3 {
 		const macKey  = ar2.mk;
 
 		// Key-Derivationヘッダの作成
-		const kdLines = App.Helper.implode([
+		const kdLines = Helper.implode([
 			`Key-Derivation: Argon2id`,
 			`Argon2-Memory: ${ar2.mem}`,
 			`Argon2-Passes: ${ar2.pass}`,
@@ -180,7 +185,7 @@ export class PPKv3 {
 		}
 
 		const pad = crypto.getRandomValues(new Uint8Array(padLen));
-		return App.Bytes.concat(plain, pad);
+		return Bytes.concat(plain, pad);
 	};
 
 	/**
@@ -197,12 +202,12 @@ export class PPKv3 {
 	 */
 	static async #computeMac(algorithmName, encryption, comment, pubBlob, privBlob, enc = null) {
 		// MACは常に「平文＋パディング側」を入力にする！
-		const macInput = App.Bytes.concat(
-			rfc4253.writeString(algorithmName),
-			rfc4253.writeString(encryption),
-			rfc4253.writeString(comment),
-			rfc4253.writeStringBytes(pubBlob),
-			rfc4253.writeStringBytes(privBlob)
+		const macInput = Bytes.concat(
+			RFC4253.writeString(algorithmName),
+			RFC4253.writeString(encryption),
+			RFC4253.writeString(comment),
+			RFC4253.writeStringBytes(pubBlob),
+			RFC4253.writeStringBytes(privBlob)
 		);
 
 		// Encryption:none の場合は`enc = null`で0x00鍵にフォールバック
@@ -238,7 +243,7 @@ export class PPKv3 {
 		const prvLineCount = Helper.lineCount(privLines);
 
 		// FIXME: 順番重要
-		return App.Helper.implode([
+		return Helper.implode([
 			`PuTTY-User-Key-File-3: ${algorithmName}`,
 			`Encryption: ${encryption}`,
 			`Comment: ${comment}`,

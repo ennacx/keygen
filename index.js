@@ -228,9 +228,9 @@ $(() => {
 
 				let set;
 				if(edVal === 'Ed25519'){
-					set = App.EdDSA.preset.Ed25519;
+					set = EdDSA_PRESET.Ed25519;
 				} else if(edVal === 'Ed448'){
-					set = App.EdDSA.preset.Ed448;
+					set = EdDSA_PRESET.Ed448;
 				} else{
 					throw new Error(`Invalid EdDSA Parameter: ${edVal}`);
 				}

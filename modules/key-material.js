@@ -1,3 +1,7 @@
+import { Bytes } from './bytes.js';
+import { RFC4253 } from './rfc4253.js';
+import { EdDSA } from "./eddsa.js";
+
 /**
  * Class representing cryptographic key material used for secure operations
  * such as encryption, decryption, signing, and verification.
@@ -115,7 +119,7 @@ export class KeyMaterial {
 
 			return myself;
 		} else{
-			const a = App.EdDSA.generate(opt.name);
+			const a = EdDSA.generate(opt.name);
 
 			console.log(a);
 		}
@@ -135,21 +139,21 @@ export class KeyMaterial {
 			throw new Error(this.JWK_NO_INIT_ERR_MSG);
 		}
 
-		const n  = App.Bytes.fromBase64(this.jwk.n);
-		const e  = App.Bytes.fromBase64(this.jwk.e);
-		const d  = App.Bytes.fromBase64(this.jwk.d);
-		const qi = App.Bytes.fromBase64(this.jwk.qi); // qinv (q⁻¹ mod p)
-		const p  = App.Bytes.fromBase64(this.jwk.p);
-		const q  = App.Bytes.fromBase64(this.jwk.q);
+		const n  = Bytes.fromBase64(this.jwk.n);
+		const e  = Bytes.fromBase64(this.jwk.e);
+		const d  = Bytes.fromBase64(this.jwk.d);
+		const qi = Bytes.fromBase64(this.jwk.qi); // qinv (q⁻¹ mod p)
+		const p  = Bytes.fromBase64(this.jwk.p);
+		const q  = Bytes.fromBase64(this.jwk.q);
 
 		// FIXME: openssh-key-v1の平文での秘密鍵情報では n, e, d, qi, p, q の順序が必須
-		return App.Bytes.concat(
-			App.RFC4253.writeMpint(n),
-			App.RFC4253.writeMpint(e),
-			App.RFC4253.writeMpint(d),
-			App.RFC4253.writeMpint(qi),
-			App.RFC4253.writeMpint(p),
-			App.RFC4253.writeMpint(q)
+		return Bytes.concat(
+			RFC4253.writeMpint(n),
+			RFC4253.writeMpint(e),
+			RFC4253.writeMpint(d),
+			RFC4253.writeMpint(qi),
+			RFC4253.writeMpint(p),
+			RFC4253.writeMpint(q)
 		);
 	}
 
@@ -165,17 +169,17 @@ export class KeyMaterial {
 			throw new Error(this.JWK_NO_INIT_ERR_MSG);
 		}
 
-		const d  = App.Bytes.fromBase64(this.jwk.d);
-		const p  = App.Bytes.fromBase64(this.jwk.p);
-		const q  = App.Bytes.fromBase64(this.jwk.q);
-		const qi = App.Bytes.fromBase64(this.jwk.qi); // qinv (q⁻¹ mod p)
+		const d  = Bytes.fromBase64(this.jwk.d);
+		const p  = Bytes.fromBase64(this.jwk.p);
+		const q  = Bytes.fromBase64(this.jwk.q);
+		const qi = Bytes.fromBase64(this.jwk.qi); // qinv (q⁻¹ mod p)
 
 		// FIXME: PPKv3のRSAでは d, p, q, qinv の順序が必須
-		return App.Bytes.concat(
-			App.RFC4253.writeMpint(d),
-			App.RFC4253.writeMpint(p),
-			App.RFC4253.writeMpint(q),
-			App.RFC4253.writeMpint(qi),
+		return Bytes.concat(
+			RFC4253.writeMpint(d),
+			RFC4253.writeMpint(p),
+			RFC4253.writeMpint(q),
+			RFC4253.writeMpint(qi),
 		);
 	}
 
@@ -193,7 +197,7 @@ export class KeyMaterial {
 		}
 
 		// ECDSAでの平文の秘密鍵情報は d だけ
-		return App.Bytes.fromBase64(this.jwk.d);
+		return Bytes.fromBase64(this.jwk.d);
 	}
 
 	/**
@@ -221,10 +225,10 @@ export class KeyMaterial {
 
 		// Q点 (0x04 || xBytes || yBytes)
 		// Q.length = P-256: 65bytes(1+32+32), P-384: 97bytes, P-521: 133bytes
-		return App.Bytes.concat(
+		return Bytes.concat(
 			Uint8Array.from([0x04]),
-			App.Bytes.fromBase64(this.jwk.x),
-			App.Bytes.fromBase64(this.jwk.y)
+			Bytes.fromBase64(this.jwk.x),
+			Bytes.fromBase64(this.jwk.y)
 		);
 	}
 }

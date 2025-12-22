@@ -2,31 +2,17 @@
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { ed448 } from '@noble/curves/ed448.js';
 // Local
+import { EdDSA_PRESET } from "./const.js";
 import { Bytes } from "./bytes.js";
 import { RFC4253 } from "./rfc4253.js";
 
 export class EdDSA {
-	static preset = {
-		Ed25519: {
-			name: 'ed25519',
-			len: 255,
-			seedLen: 32,
-			hash: 'SHA-512',
-		},
-		Ed448: {
-			name: 'ed448',
-			len: 448,
-			seedLen: 57,
-			hash: 'SHAKE-256',
-		}
-	};
-
 	static generate(presetKey) {
-		if(!this.preset[presetKey]){
+		if(!EdDSA_PRESET[presetKey]){
 			throw new Error(`Invalid preset key: ${presetKey}`);
 		}
 
-		const preset = this.preset[presetKey];
+		const preset = EdDSA_PRESET[presetKey];
 		const seed = this.#getSeed(preset.seedLen);
 
 		let pub;

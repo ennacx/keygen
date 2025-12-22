@@ -29,6 +29,21 @@ export const OID = {
 	Ed448:       '1.3.101.113'
 };
 
+export const EdDSA_PRESET = {
+	Ed25519: {
+		name: 'ed25519',
+		len: 255,
+		seedLen: 32,
+		hash: 'SHA-512',
+	},
+	Ed448: {
+		name: 'ed448',
+		len: 448,
+		seedLen: 57,
+		hash: 'SHAKE-256',
+	}
+};
+
 /**
  * An object representing PEM (Privacy Enhanced Mail) labels used for identifying
  * different types of keys and formats in PEM encoded data.

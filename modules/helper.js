@@ -1,3 +1,5 @@
+import { Bytes } from "./bytes.js";
+
 /**
  * A utility class providing helper functions for data encoding, string manipulation, and formatting.
  */
@@ -83,7 +85,7 @@ export class Helper {
 	 * @returns {string} A PEM formatted string with the provided label and encoded data.
 	 */
 	static toPEM(buffer, label, wrapWidth = 64, addLabel = "") {
-		const base64 = this.stringWrap(App.Bytes.toBase64(buffer), wrapWidth);
+		const base64 = this.stringWrap(Bytes.toBase64(buffer), wrapWidth);
 
 		if(addLabel !== ""){
 			label = `${addLabel} ${label}`;

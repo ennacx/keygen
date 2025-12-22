@@ -3,6 +3,9 @@ import bcryptPbkdf from 'bcrypt-pbkdf';
 import { ChaCha20Poly1305 } from '@stablelib/chacha20poly1305';
 // Local
 import { PEM_LABEL } from './const.js';
+import { Bytes } from './bytes.js';
+import { Helper } from './helper.js';
+import { RFC4253 } from './rfc4253.js';
 import { PubKey } from './pubkey.js';
 
 /**
@@ -21,7 +24,7 @@ export class OpenSSH {
 	static async makeFingerprint(blob) {
 		const digest = await crypto.subtle.digest('SHA-256', blob);
 
-		return App.Bytes.toBase64(digest)
+		return Bytes.toBase64(digest)
 			// OpenSSH風に末尾の=を削る
 			.replace(/=+$/, '');
 	}
@@ -100,15 +103,15 @@ export class OpenSSH {
 			aead.seal(nonce, plainBlob, aad, sealed);
 
 			// nonce || ciphertext || tag
-			const encryptedBlob = App.Bytes.concat(
+			const encryptedBlob = Bytes.concat(
 				nonce, // 復号時に使うノンスを付与
 				sealed
 			);
 
 			// 5. KDFOptions & コンテナ
-			const kdfOptions = App.Bytes.concat(
-				rfc4253.writeStringBytes(kdf.salt), // string salt
-				rfc4253.writeUint32(rounds)         // uint32 rounds
+			const kdfOptions = Bytes.concat(
+				RFC4253.writeStringBytes(kdf.salt), // string salt
+				RFC4253.writeUint32(rounds)         // uint32 rounds
 			);
 
 			buildMaterial = {
@@ -149,9 +152,9 @@ export class OpenSSH {
 			);
 
 			// 5. KDFOptions & コンテナ
-			const kdfOptions = App.Bytes.concat(
-				rfc4253.writeStringBytes(kdf.salt), // string salt
-				rfc4253.writeUint32(rounds)         // uint32 rounds
+			const kdfOptions = Bytes.concat(
+				RFC4253.writeStringBytes(kdf.salt), // string salt
+				RFC4253.writeUint32(rounds)         // uint32 rounds
 			);
 
 			buildMaterial = {
@@ -189,23 +192,23 @@ export class OpenSSH {
 
 		let core;
 		if(keyType === 'ssh-rsa'){
-			core = App.Bytes.concat(
-				rfc4253.writeUint32(check),     // uint32     checkint1
-				rfc4253.writeUint32(check),     // uint32     checkint2
-				rfc4253.writeString(keyType),   // string     key type ("ssh-rsa" など)
-				rfc4253.writeStringBytes(publicBlob),
+			core = Bytes.concat(
+				RFC4253.writeUint32(check),     // uint32     checkint1
+				RFC4253.writeUint32(check),     // uint32     checkint2
+				RFC4253.writeString(keyType),   // string     key type ("ssh-rsa" など)
+				RFC4253.writeStringBytes(publicBlob),
 				privatePart,                    // Uint8Array private key fields (鍵種別ごとの生フィールド)
-				rfc4253.writeString(comment)    // string     comment
+				RFC4253.writeString(comment)    // string     comment
 			);
 		} else if(keyType.startsWith('ecdsa-sha2-') && opt.Q instanceof Uint8Array){
-			core = App.Bytes.concat(
-				rfc4253.writeUint32(check),      // uint32     checkint1
-				rfc4253.writeUint32(check),      // uint32     checkint2
-				rfc4253.writeString(keyType),    // string     key type ("ecdsa-sha2-nisp256" など)
-				rfc4253.writeString(keyType.replace('ecdsa-sha2-', '')),   // string     curve ("nisp256" など)
-				rfc4253.writeStringBytes(opt.Q), // Q
+			core = Bytes.concat(
+				RFC4253.writeUint32(check),      // uint32     checkint1
+				RFC4253.writeUint32(check),      // uint32     checkint2
+				RFC4253.writeString(keyType),    // string     key type ("ecdsa-sha2-nisp256" など)
+				RFC4253.writeString(keyType.replace('ecdsa-sha2-', '')),   // string     curve ("nisp256" など)
+				RFC4253.writeStringBytes(opt.Q), // Q
 				privatePart,                     // Uint8Array private key fields (鍵種別ごとの生フィールド)
-				rfc4253.writeString(comment)     // string     comment
+				RFC4253.writeString(comment)     // string     comment
 			);
 		}
 
@@ -246,19 +249,19 @@ export class OpenSSH {
 		 * ]
 		 */
 
-		const magic = App.Bytes.concat(
+		const magic = Bytes.concat(
 			Helper.toUtf8('openssh-key-v1'),
 			new Uint8Array([0x00])
 		);
 
-		return App.Bytes.concat(
+		return Bytes.concat(
 			magic,
-			rfc4253.writeString(cipherName),        // e.g., "aes256-ctr", "chacha20-poly1305@openssh.com"
-			rfc4253.writeString(kdfName),           // "bcrypt"
-			rfc4253.writeStringBytes(kdfOptions),   // string kdfOptions
-			rfc4253.writeUint32(1),                 // 鍵の個数 N=1
-			rfc4253.writeStringBytes(publicBlob),   // string publickey1
-			rfc4253.writeStringBytes(encryptedBlob) // string encrypted_privates
+			RFC4253.writeString(cipherName),        // e.g., "aes256-ctr", "chacha20-poly1305@openssh.com"
+			RFC4253.writeString(kdfName),           // "bcrypt"
+			RFC4253.writeStringBytes(kdfOptions),   // string kdfOptions
+			RFC4253.writeUint32(1),                 // 鍵の個数 N=1
+			RFC4253.writeStringBytes(publicBlob),   // string publickey1
+			RFC4253.writeStringBytes(encryptedBlob) // string encrypted_privates
 		);
 	}
 

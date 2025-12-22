@@ -12,18 +12,6 @@
  */
 const Helper = App.Helper;
 
-/**
- * Represents an implementation or reference to the RFC 4253 specification,
- * which defines the SSH Transport Layer Protocol.
- *
- * The RFC 4253 outlines the structure and behavior of the transport layer in the SSH protocol,
- * including algorithms for key exchange, server authentication, encryption, and message integrity.
- *
- * This variable may encapsulate methods, constants, or configurations that adhere to the
- * rules and mechanisms specified in RFC 4253.
- */
-const rfc4253 = App.RFC4253;
-
 let keygenReduceNum = -1;
 
 /**
