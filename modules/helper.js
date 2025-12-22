@@ -77,7 +77,7 @@ export class Helper {
 	/**
 	 * Converts a given buffer to a PEM formatted string.
 	 *
-	 * @param {Buffer} buffer - The binary data to be encoded in PEM format.
+	 * @param {Uint8Array|ArrayBuffer} buffer - The binary data to be encoded in PEM format.
 	 * @param {string} label - The label to include in the PEM header and footer (e.g., "PUBLIC KEY", "PRIVATE KEY").
 	 * @param {number} [wrapWidth=64] - The width of line wrapping for the base64 content; defaults to 64.
 	 * @param {string} [addLabel=""] - An optional additional prefix to the label,

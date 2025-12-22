@@ -66,7 +66,7 @@ export class EdDSA {
 	}
 
 	#makeEdPrivateFields(pub, seed) {
-		const priv = App.Bytes.concat(seed, pub); // seed || pub
+		const priv = Bytes.concat(seed, pub); // seed || pub
 
 		return Bytes.concat(
 			RFC4253.writeStringBytes(pub),
@@ -114,12 +114,11 @@ export class EdDSA {
 		const jwk = {
 			kty: 'OKP',
 			crv,
-			x: Bytes.toBase64(pub),
-			d: null
+			x: Bytes.toBase64Url(pub)
 		};
 
 		if(seed){
-			jwk.d = Bytes.toBase64(seed);
+			jwk.d = Bytes.toBase64Url(seed);
 		}
 
 		return jwk;

@@ -29,11 +29,26 @@ export class Bytes {
 	}
 
 	/**
+	 * Converts the given buffer into a Base64 URL-safe string.
+	 * Replaces characters `+` with `-` and `/` with `_`, and trims
+	 * trailing `=` characters.
+	 *
+	 * @param {Uint8Array|ArrayBuffer} buffer - The input buffer to be converted.
+	 * @return {string} The Base64 URL-safe string representation of the buffer.
+	 */
+	static toBase64Url(buffer) {
+		return this.toBase64(buffer)
+			.replace(/\+/g, '-').replace(/\//g, '_')
+			// OpenSSH風に末尾の=を削る
+			.replace(/=+$/, '');
+	}
+
+	/**
 	 * Decodes a Base64-encoded string into a Uint8Array.
 	 *
-	 * @param {string} b64 - The Base64-encoded string to decode. This string should not include
-	 *                       characters that are invalid in Base64 encoding, such as newline or whitespace.
-	 * @returns {Uint8Array|null} Returns a Uint8Array representing the decoded binary data, or null if the input is not a valid string.
+	 * @param {string} b64 - The Base64-encoded string to decode. If the string is not properly formatted,
+	 *                       it will attempt to correct padding and replace unsupported characters.
+	 * @return {Uint8Array|null} The decoded data as a Uint8Array, or null if the input is not a string.
 	 */
 	static fromBase64(b64) {
 		if(typeof b64 !== 'string'){
@@ -45,9 +60,10 @@ export class Bytes {
 			s += '=';
 		}
 
-		const decoded = atob(s);
-		const buffer = new Uint8Array(decoded.length);
-		for(let i = 0; i < b64.length; i++){
+		const decoded    = atob(s);
+		const decodedLen = decoded.length;
+		const buffer     = new Uint8Array(decodedLen);
+		for(let i = 0; i < decodedLen; i++){
 			buffer[i] = decoded.charCodeAt(i);
 		}
 
@@ -59,7 +75,7 @@ export class Bytes {
 	 *
 	 * @param {ArrayBuffer} buffer - The input buffer to hash.
 	 * @param {string} [algo='SHA-256'] - The hashing algorithm to use. Defaults to 'SHA-256'.
-	 * @return {Promise<Uint8Array>} A promise that resolves to a Uint8Array containing the hashed seed.
+	 * @return {Promise<Uint8Array>} A promise that resolves to a Uint8Array containing the hashed seed
 	 */
 	static async generateSeed(buffer, algo = 'SHA-256') {
 		const digest = await crypto.subtle.digest(algo, buffer);
