@@ -110,17 +110,15 @@ async function generateKey(name, opt, onProgress) {
 	const encryption = (passphrase !== null) ? 'aes256-cbc' : 'none';
 
 	/**
-	 * Represents an asynchronous callback function that retrieves an instance of KeyMaterial.
+	 * An asynchronous callback function that retrieves an instance of KeyMaterial.
+	 * This function is responsible for fetching the desired key material instance
+	 * based on the provided parameters. It utilizes the `KeyMaterial.getInstance` method.
 	 *
-	 * This function uses the `KeyMaterial.getInstance` method to obtain a key material instance.
-	 * The instance is created using the provided `name` and options `opt` that specify the desired
-	 * length `opt.len` and elliptic curve `opt.nist`.
-	 *
-	 * @async
 	 * @function
+	 * @async
 	 * @returns {Promise<KeyMaterial>} A promise that resolves to an instance of KeyMaterial.
 	 */
-	const kmCallback = async () => KeyMaterial.getInstance(name, { len: opt.len, curve: opt.nist });
+	const kmCallback = async () => KeyMaterial.getInstance(name, opt);
 
 	/**
 	 * Represents the cryptographic material or data used as a key in encryption or decryption processes.
@@ -197,6 +195,9 @@ async function generateKey(name, opt, onProgress) {
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${rsaOpenssh.fingerprint}`;
 			privatePlain       = keyMaterial.rsaPrivatePartPPKv3();
 
+			break;
+
+		case 'EdDSA':
 			break;
 
 		case 'ECDSA':

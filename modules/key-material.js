@@ -66,19 +66,18 @@ export class KeyMaterial {
 	}
 
 	/**
-	 * Generates a cryptographic key pair based on the specified algorithm and returns an instance of the class containing the generated keys.
+	 * Generates an instance of the object with a cryptographic key pair based on the specified algorithm.
 	 *
-	 * @param {string} name - The name of the cryptographic algorithm to use. Supported values are "RSA" and "ECDSA".
-	 * @param {Object} options - Options required for the key generation, specific to the chosen algorithm.
-	 * @param {number} options.len - The modulus length (in bits) for RSA key generation.
-	 * @param {string} options.curve - The named elliptic curve for ECDSA key generation.
-	 *
-	 * @return {Promise<Object>} A promise that resolves to an instance of the class containing the generated keys (`keyPair`),
-	 *                           exported public key (`spki`), private key (`pkcs8`), and private key in JWK format (`jwk`).
-	 *
-	 * @throws {Error} If the specified algorithm is not supported or the key pair generation fails.
+	 * @param {string} name - The name of the algorithm to use (e.g., 'RSA', 'EdDSA', or 'ECDSA').
+	 * @param {Object} opt - Configuration options for the key generation.
+	 * @param {number} [opt.len] - Key length (required for RSA or EdDSA).
+	 * @param {number} [opt.seedLen] - Seed length (applicable for EdDSA).
+	 * @param {string} [opt.hash] - Hashing algorithm (used for EdDSA).
+	 * @param {string} [opt.nist] - Named curve for elliptic curve algorithms (applicable for ECDSA).
+	 * @return {Promise<Object>} A promise that resolves to an instance with the generated cryptographic keys.
+	 * @throws {Error} If the specified algorithm is unsupported or key pair generation fails.
 	 */
-	static async getInstance(name, { len, curve }) {
+	static async getInstance(name, opt) {
 		const myself = new this();
 
 		let algo = {};
@@ -86,32 +85,40 @@ export class KeyMaterial {
 			case 'RSA':
 				algo = {
 					name: 'RSA-PSS',
-					modulusLength: len,
+					modulusLength: opt.len,
 					publicExponent: new Uint8Array([1, 0, 1]),
 					hash: 'SHA-256'
 				};
 				break;
+			case 'EdDSA':
+				break;
 			case 'ECDSA':
 				algo = {
 					name: name,
-					namedCurve: curve
+					namedCurve: opt.nist
 				};
 				break;
 			default:
 				throw new Error(`Unsupported algorithm: ${name}`);
 		}
 
-		myself.keyPair = await crypto.subtle.generateKey(algo, true, ['sign', 'verify']);
+		if(name !== 'EdDSA'){
+			myself.keyPair = await crypto.subtle.generateKey(algo, true, ['sign', 'verify']);
 
-		if(!myself.keyPair.publicKey || !myself.keyPair.privateKey){
-			throw new Error('Failed to generate key pair');
+			if(!myself.keyPair.publicKey || !myself.keyPair.privateKey){
+				throw new Error('Failed to generate key pair');
+			}
+
+			myself.spki  = await crypto.subtle.exportKey('spki', myself.keyPair.publicKey);
+			myself.pkcs8 = await crypto.subtle.exportKey('pkcs8', myself.keyPair.privateKey);
+			myself.jwk   = await crypto.subtle.exportKey('jwk', myself.keyPair.privateKey);
+
+			return myself;
+		} else{
+			const a = App.EdDSA.generate(opt.name);
+
+			console.log(a);
 		}
-
-		myself.spki  = await crypto.subtle.exportKey('spki', myself.keyPair.publicKey);
-		myself.pkcs8 = await crypto.subtle.exportKey('pkcs8', myself.keyPair.privateKey);
-		myself.jwk   = await crypto.subtle.exportKey('jwk', myself.keyPair.privateKey);
-
-		return myself;
 	}
 
 	/**

@@ -38,6 +38,7 @@
             <label>Algorithm:</label>
             <select name="algo" id="algo" class="form-select" title="Algorithm-Select">
                 <option value="RSA">RSA-PSS</option>
+                <option value="EdDSA">EdDSA</option>
                 <option value="ECDSA">ECDSA</option>
             </select>
 
@@ -53,6 +54,16 @@
                 <div class="form-check form-check-inline">
                     <input type="radio" name="rsalen" value="4096" id="rsalen-4096" class="form-check-input">
                     <label for="rsalen-4096" class="form-check-label">4096bit</label>
+                </div>
+            </div>
+            <div id="eddsa-length-radio" class="d-flex mt-2">
+                <div class="form-check form-check-inline">
+                    <input type="radio" name="edval" value="Ed25519" id="edval-255" class="form-check-input" checked>
+                    <label for="edval-255" class="form-check-label">Ed25519</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input type="radio" name="edval" value="Ed448" id="edval-448" class="form-check-input">
+                    <label for="edval-448" class="form-check-label">Ed448</label>
                 </div>
             </div>
             <div id="ecdsa-nist-radio" class="d-flex mt-2">

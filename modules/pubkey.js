@@ -1,3 +1,8 @@
+import { Bytes } from "./bytes.js";
+import { Parser } from "./parser.js";
+import { RFC4253 } from "./rfc4253.js";
+import { OpenSSH } from "./openssh.js";
+
 export class PubKey {
 	/**
 	 * Represents a parser instance that is responsible for analyzing and interpreting input data or structures,
@@ -16,7 +21,7 @@ export class PubKey {
 	 * @return {void} This constructor does not return a value.
 	 */
 	constructor(spkiDer) {
-		this.#parser = new App.Parser(spkiDer);
+		this.#parser = new Parser(spkiDer);
 	}
 
 	/**
@@ -30,16 +35,16 @@ export class PubKey {
 	 */
 	async rsa() {
 		const rsa = this.#parser.rsaSpki();
-		const blob = App.Bytes.concat(
-			App.RFC4253.writeString(rsa.name),
-			App.RFC4253.writeMpint(rsa.e),
-			App.RFC4253.writeMpint(rsa.n)
+		const blob = Bytes.concat(
+			RFC4253.writeString(rsa.name),
+			RFC4253.writeMpint(rsa.e),
+			RFC4253.writeMpint(rsa.n)
 		);
 
 		return {
 			raw: blob,
-			pubkey: App.Bytes.toBase64(blob),
-			fingerprint: await App.OpenSSH.makeFingerprint(blob)
+			pubkey: Bytes.toBase64(blob),
+			fingerprint: await OpenSSH.makeFingerprint(blob)
 		};
 	}
 
@@ -54,16 +59,16 @@ export class PubKey {
 	 */
 	async ecdsa() {
 		const ecdsa = this.#parser.ecdsaSpki();
-		const blob = App.Bytes.concat(
-			App.RFC4253.writeString(`ecdsa-sha2-${ecdsa.curveName}`), //string  ex. "ecdsa-sha2-nistp256"
-			App.RFC4253.writeString(ecdsa.curveName), // string "nistp256"
-			App.RFC4253.writeStringBytes(ecdsa.Q),    // string Q (0x04 || X || Y)
+		const blob = Bytes.concat(
+			RFC4253.writeString(`ecdsa-sha2-${ecdsa.curveName}`), //string  ex. "ecdsa-sha2-nistp256"
+			RFC4253.writeString(ecdsa.curveName), // string "nistp256"
+			RFC4253.writeStringBytes(ecdsa.Q),    // string Q (0x04 || X || Y)
 		);
 
 		return {
 			raw: blob,
-			pubkey: App.Bytes.toBase64(blob),
-			fingerprint: await App.OpenSSH.makeFingerprint(blob)
+			pubkey: Bytes.toBase64(blob),
+			fingerprint: await OpenSSH.makeFingerprint(blob)
 		};
 	}
 }

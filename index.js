@@ -27,6 +27,7 @@ function download(id, content, filename) {
 
 $(() => {
 	const $rsaLengthRadio = $('#rsa-length-radio');
+	const $eddsaNistRadio = $('#eddsa-length-radio');
 	const $ecdsaNistRadio = $('#ecdsa-nist-radio');
 	const $passphraseCheck = $('input[name="use-passphrase"]');
 	const $guri2Check = $('input[name="guri2view"]');
@@ -60,10 +61,17 @@ $(() => {
 		switch(al){
 			case 'RSA':
 				$rsaLengthRadio.addClass('d-flex').removeClass('d-none');
+				$eddsaNistRadio.addClass('d-none').removeClass('d-flex');
+				$ecdsaNistRadio.addClass('d-none').removeClass('d-flex');
+				break;
+			case 'EdDSA':
+				$rsaLengthRadio.addClass('d-none').removeClass('d-flex');
+				$eddsaNistRadio.addClass('d-flex').removeClass('d-none');
 				$ecdsaNistRadio.addClass('d-none').removeClass('d-flex');
 				break;
 			case 'ECDSA':
 				$rsaLengthRadio.addClass('d-none').removeClass('d-flex');
+				$eddsaNistRadio.addClass('d-none').removeClass('d-flex');
 				$ecdsaNistRadio.addClass('d-flex').removeClass('d-none');
 				break;
 		}
@@ -212,13 +220,36 @@ $(() => {
 
 				opt.prefix = 'ssh-rsa';
 				opt.len = parseInt(val);
+
 				break;
+
+			case 'EdDSA':
+				const edVal = $('input[name="edval"]:checked').val();
+
+				let set;
+				if(edVal === 'Ed25519'){
+					set = App.EdDSA.preset.Ed25519;
+				} else if(edVal === 'Ed448'){
+					set = App.EdDSA.preset.Ed448;
+				} else{
+					throw new Error(`Invalid EdDSA Parameter: ${edVal}`);
+				}
+
+				opt.name = edVal;
+				opt.prefix = 'ssh-' + set.name;
+				opt.len = set.len;
+				opt.seedLen = set.seedLen;
+				opt.hash = set.hash;
+
+				break;
+
 			case 'ECDSA':
 				const nistVal = $('input[name="nist"]:checked').val();
 
 				opt.nist = `P-${nistVal}`;
 				opt.len = parseInt(nistVal);
 				opt.prefix = 'ecdsa-sha2-nist' + opt.nist.replace(/\-/g, '').toLowerCase();
+
 				break;
 		}
 
@@ -243,7 +274,7 @@ $(() => {
 			const result = await generateKey(al, opt, progressFunc);
 
 			// 公開PEM
-			const publicPEM  = App.Helper.toPEM(result.material.spki, App.Helper.PEM_LABEL.publicKey, 64);
+			const publicPEM  = App.Helper.toPEM(result.material.spki, App.PEM_LABEL.publicKey, 64);
 
 			// 秘密PEM
 			let privatePEM;
@@ -253,7 +284,7 @@ $(() => {
 						if(opt.passphrase && opt.passphrase !== ''){
 							const pkcs8pbes2 = new App.PKCS8withPBES2(opt.passphrase);
 							const { encrypted } = await pkcs8pbes2.encrypt(result.material.pkcs8);
-							privatePEM = App.Helper.toPEM(encrypted, App.Helper.PEM_LABEL.privateKey, 64, App.Helper.PEM_LABEL.encryptedAdd);
+							privatePEM = App.Helper.toPEM(encrypted, App.PEM_LABEL.privateKey, 64, App.PEM_LABEL.encryptedAdd);
 						} else{
 							throw new Error('Passphrase is required for PKCS#8 encryption.');
 						}
@@ -276,7 +307,7 @@ $(() => {
 						throw new Error(`Invalid encryption type ${encType}`);
 				}
 			} else{
-				privatePEM = App.Helper.toPEM(result.material.pkcs8, App.Helper.PEM_LABEL.privateKey, 64);
+				privatePEM = App.Helper.toPEM(result.material.pkcs8, App.PEM_LABEL.privateKey, 64);
 			}
 
 			// 表示用

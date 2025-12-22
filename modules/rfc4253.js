@@ -46,7 +46,9 @@ export class RFC4253 {
 	 *                       followed by the UTF-8 encoded representation of the string.
 	 */
 	static writeString(str) {
-		return this.writer(App.Helper.toUtf8(str));
+		const utf8Str = new TextEncoder().encode(str);
+
+		return this.writer(utf8Str);
 	}
 
 	/**

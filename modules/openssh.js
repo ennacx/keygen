@@ -1,3 +1,10 @@
+// CDN
+import bcryptPbkdf from 'bcrypt-pbkdf';
+import { ChaCha20Poly1305 } from '@stablelib/chacha20poly1305';
+// Local
+import { PEM_LABEL } from './const.js';
+import { PubKey } from './pubkey.js';
+
 /**
  * Provides utilities for generating and managing OpenSSH keys and fingerprints.
  * This class includes methods for creating SHA-256 fingerprints, generating OpenSSH private keys
@@ -34,7 +41,7 @@ export class OpenSSH {
 		let pubBlob;
 		let privBlob;
 
-		const pubkey = new App.PubKey(keyMaterial.spki);
+		const pubkey = new PubKey(keyMaterial.spki);
 		const opt = {};
 
 		// RSA
@@ -86,7 +93,7 @@ export class OpenSSH {
 
 			// 4. ChaCha20-Poly1305 で暗号化
 			const nonce = crypto.getRandomValues(new Uint8Array(12)); // RFC7539ではノンス(iv)長は12バイトを指定
-			const aead  = new CdnApp.ChaCha20Poly1305(kdf.aeadKey); // AEAD (Authenticated Encryption with Associated Data)
+			const aead  = new ChaCha20Poly1305(kdf.aeadKey); // AEAD (Authenticated Encryption with Associated Data)
 			const aad   = new Uint8Array(0); // 現状AADに突っ込むものがないので空のまま
 
 			const sealed = new Uint8Array(plainBlob.length + 16); // ciphertext || tag (末尾16バイトがタグ) FIXME: 必ずpadding後に暗号化
@@ -162,7 +169,7 @@ export class OpenSSH {
 
 		const binary = this.#buildOpenSSHKeyV1(buildMaterial);
 
-		return Helper.toPEM(binary, App.Helper.PEM_LABEL.privateKey, 70, App.Helper.PEM_LABEL.opensshAdd);
+		return Helper.toPEM(binary, PEM_LABEL.privateKey, 70, PEM_LABEL.opensshAdd);
 	}
 
 	/**
@@ -275,7 +282,7 @@ export class OpenSSH {
 	 * @see https://app.unpkg.com/bcrypt-pbkdf@1.0.2/files/README.md
 	 */
 	static #bcryptKdf = (passphrase, rounds = 16, saltLen = 16, returnBufferLen = 32) => {
-		if(!CdnApp.PBKDF || typeof CdnApp.PBKDF.pbkdf !== 'function'){
+		if(!bcryptPbkdf || typeof bcryptPbkdf.pbkdf !== 'function'){
 			throw new Error('bcrypt-pbkdf not found');
 		} else if(!passphrase){
 			throw new Error('Empty passphrase');
@@ -287,7 +294,7 @@ export class OpenSSH {
 		const aeadKey   = new Uint8Array(returnBufferLen);
 
 		// bcrypt-pbkdf.pbkdf(pass, passlen, salt, saltlen, key, keylen, rounds)
-		CdnApp.PBKDF.pbkdf(
+		bcryptPbkdf.pbkdf(
 			passBytes,
 			passBytes.length,
 			saltBytes,
@@ -299,7 +306,7 @@ export class OpenSSH {
 
 		console.log(Helper.implode([
 			'AEAD-Key Hex Dump:',
-			App.Helper.hexPad(aeadKey)
+			Helper.hexPad(aeadKey)
 		]));
 
 		return { salt: saltBytes, aeadKey };
