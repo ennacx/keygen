@@ -37,7 +37,7 @@ export class Parser {
 			// AlgorithmIdentifier
 			this.#expect(0x30);           // SEQUENCE
 			const algLen = this.#readLen();
-			this.#offset += algLen;       // ざっくりスキップ（rsaEncryption前提）
+			this.#offset += algLen;       // ざっくりスキップ (rsaEncryption前提)
 
 			// subjectPublicKey (BIT STRING)
 			this.#expect(0x03);

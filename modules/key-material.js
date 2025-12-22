@@ -8,16 +8,6 @@ import { EdDSA } from "./eddsa.js";
  */
 export class KeyMaterial {
 	/**
-	 * Represents a cryptographic key pair used for secure communication.
-	 * Typically includes a private key and a corresponding public key.
-	 *
-	 * @typedef {Object} keyPair
-	 * @property {string} privateKey - A private key used for encryption or signing.
-	 * @property {string} publicKey - A public key used for decryption or verification.
-	 */
-	keyPair;
-
-	/**
 	 * Represents a Subject Public Key Information (SPKI) structure.
 	 *
 	 * SPKI is used in cryptographic operations to define the public key
@@ -107,22 +97,25 @@ export class KeyMaterial {
 		}
 
 		if(name !== 'EdDSA'){
-			myself.keyPair = await crypto.subtle.generateKey(algo, true, ['sign', 'verify']);
+			const keyPair = await crypto.subtle.generateKey(algo, true, ['sign', 'verify']);
 
-			if(!myself.keyPair.publicKey || !myself.keyPair.privateKey){
+			if(!keyPair.publicKey || !keyPair.privateKey){
 				throw new Error('Failed to generate key pair');
 			}
 
-			myself.spki  = await crypto.subtle.exportKey('spki', myself.keyPair.publicKey);
-			myself.pkcs8 = await crypto.subtle.exportKey('pkcs8', myself.keyPair.privateKey);
-			myself.jwk   = await crypto.subtle.exportKey('jwk', myself.keyPair.privateKey);
-
-			return myself;
+			myself.spki  = await crypto.subtle.exportKey('spki', keyPair.publicKey);
+			myself.pkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+			myself.jwk   = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
 		} else{
-			const a = EdDSA.generate(opt.name);
+			const eddsa = new EdDSA(opt.name);
+			const a = eddsa.generate();
 
-			console.log(a);
+			myself.spki  = a.spki;
+			myself.pkcs8 = a.pkcs8;
+			myself.jwk   = a.jwk;
 		}
+
+		return myself;
 	}
 
 	/**

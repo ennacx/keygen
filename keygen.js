@@ -186,6 +186,8 @@ async function generateKey(name, opt, onProgress) {
 			break;
 
 		case 'EdDSA':
+			pubBlob = keyMaterial.spki;
+			privatePlain = keyMaterial.pkcs8;
 			break;
 
 		case 'ECDSA':
