@@ -15,21 +15,6 @@ import { PubKey } from './pubkey.js';
  */
 export class OpenSSH {
 	/**
-	 * Generates a SHA-256 fingerprint of the given data and converts it to a base64-encoded string without trailing equals signs.
-	 *
-	 * @async
-	 * @param {ArrayBuffer} blob - The input data to generate the fingerprint for.
-	 * @return {Promise<string>} A promise that resolves to the base64-encoded SHA-256 fingerprint.
-	 */
-	static async makeFingerprint(blob) {
-		const digest = await crypto.subtle.digest('SHA-256', blob);
-
-		return Bytes.toBase64(digest)
-			// OpenSSH風に末尾の=を削る
-			.replace(/=+$/, '');
-	}
-
-	/**
 	 * Generates an OpenSSH private key in OpenSSH-key-v1 format.
 	 *
 	 * @param {string} cipher - The encryption cipher to use (e.g., "cc20p1305", "aes256ctr"). Use "none" for no encryption.

@@ -185,11 +185,6 @@ async function generateKey(name, opt, onProgress) {
 
 			break;
 
-		case 'EdDSA':
-			pubBlob = keyMaterial.spki;
-			privatePlain = keyMaterial.pkcs8;
-			break;
-
 		case 'ECDSA':
 			const ecdsaOpenssh = await pubkey.ecdsa();
 
@@ -197,6 +192,16 @@ async function generateKey(name, opt, onProgress) {
 			opensshPubkey      = makeOpenSshPubKey(opt, ecdsaOpenssh.pubkey, comment);
 			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${ecdsaOpenssh.fingerprint}`;
 			privatePlain       = keyMaterial.ecdsaPrivatePart();
+
+			break;
+
+		case 'EdDSA':
+			const eddsaOpenssh = await pubkey.eddsa();
+
+			pubBlob = eddsaOpenssh.raw;
+			opensshPubkey      = makeOpenSshPubKey(opt, eddsaOpenssh.pubkey, comment);
+			opensshFingerprint = `${opt.prefix} ${opt.len} SHA256:${eddsaOpenssh.fingerprint}`;
+			privatePlain = keyMaterial.pkcs8;
 
 			break;
 	}

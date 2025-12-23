@@ -8,46 +8,50 @@ import { RFC4253 } from "./rfc4253.js";
 import { DerHelper } from "./der-helper.js";
 
 export class EdDSA {
-	#curveName;
+	curveName;
+
+	preset;
+
+	seed;
+
+	keyType;
+
+	publicBlob;
+
+	privateFields;
+
+	spki;
+
+	pkcs8;
+
+	jwk;
 
 	constructor(curveName) {
 		if(!EdDSA_PRESET[curveName]){
 			throw new Error(`Invalid preset key: ${curveName}`);
 		}
 
-		this.#curveName = curveName;
-	}
-	generate() {
-		const preset = EdDSA_PRESET[this.#curveName];
-		const seed = this.#getSeed(preset.seedLen);
+		this.curveName = curveName;
+		this.preset    = EdDSA_PRESET[this.curveName];
+		this.seed      = this.#getSeed(this.preset.seedLen);
+		this.keyType   = `ssh-${this.preset.name}`;
 
 		let pub;
-		switch(this.#curveName){
+		switch(this.curveName){
 			case 'Ed25519':
-				pub = ed25519.getPublicKey(seed);
+				pub = ed25519.getPublicKey(this.seed);
 				break;
 			case 'Ed448':
-				pub = ed448.getPublicKey(seed);
+				pub = ed448.getPublicKey(this.seed);
 				break;
 		}
 
-		const keyType = `ssh-${preset.name}`;
+		this.publicBlob    = this.#makeEdPublicBlob(this.keyType, pub);
+		this.privateFields = this.#makeEdPrivateFields(pub, this.seed);
 
-		const spki  = this.#toSpkiDer({ crv: this.#curveName, pub });
-		const pkcs8 = this.#toPkcs8Der({ crv: this.#curveName, seed, pub, includePublic: true });
-		const jwk   = this.#toJwk({ crv: this.#curveName, pub, seed });
-
-		return {
-			keyType,
-			seed,
-			pub,
-			len: preset.len,
-			publicBlob: this.#makeEdPublicBlob(keyType, pub),
-			privateFields: this.#makeEdPrivateFields(pub, seed),
-			spki,
-			pkcs8,
-			jwk
-		};
+		this.spki  = this.#toSpkiDer({ crv: this.curveName, pub });
+		this.pkcs8 = this.#toPkcs8Der({ crv: this.curveName, seed: this.seed, pub, includePublic: true });
+		this.jwk   = this.#toJwk({ crv: this.curveName, pub, seed: this.seed });
 	}
 
 	#getSeed(length) {

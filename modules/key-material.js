@@ -46,6 +46,8 @@ export class KeyMaterial {
 	 */
 	jwk;
 
+	#eddsa;
+
 	/**
 	 * Error message indicating that the JSON Web Key (JWK) has not been initialized.
 	 * This constant is used to inform the developer that the `getInstance()` method
@@ -54,6 +56,8 @@ export class KeyMaterial {
 	 * @constant {string} JWK_NO_INIT_ERR_MSG
 	 */
 	JWK_NO_INIT_ERR_MSG = 'JSON Web Key (JWK) not found. Call getInstance() first to generate a key pair and export the JWK.';
+
+	EdDSA_NO_INIT_ERR_MSG = 'EdDSA not found. Call getInstance() first to generate a key pair and export the EdDSA.';
 
 	constructor() {
 		// NOP
@@ -108,11 +112,10 @@ export class KeyMaterial {
 			myself.jwk   = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
 		} else{
 			const eddsa = new EdDSA(opt.name);
-			const a = eddsa.generate();
-
-			myself.spki  = a.spki;
-			myself.pkcs8 = a.pkcs8;
-			myself.jwk   = a.jwk;
+			myself.spki   = eddsa.spki;
+			myself.pkcs8  = eddsa.pkcs8;
+			myself.jwk    = eddsa.jwk;
+			myself.#eddsa = eddsa;
 		}
 
 		return myself;
@@ -223,5 +226,11 @@ export class KeyMaterial {
 			Bytes.fromBase64(this.jwk.x),
 			Bytes.fromBase64(this.jwk.y)
 		);
+	}
+
+	eddsaPrivatePart() {
+		if(!this.#eddsa){
+			throw new Error(this.EdDSA_NO_INIT_ERR_MSG);
+		}
 	}
 }

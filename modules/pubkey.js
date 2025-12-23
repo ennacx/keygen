@@ -1,7 +1,6 @@
 import { Bytes } from "./bytes.js";
 import { Parser } from "./parser.js";
 import { RFC4253 } from "./rfc4253.js";
-import { OpenSSH } from "./openssh.js";
 
 export class PubKey {
 	/**
@@ -41,11 +40,7 @@ export class PubKey {
 			RFC4253.writeMpint(rsa.n)
 		);
 
-		return {
-			raw: blob,
-			pubkey: Bytes.toBase64(blob),
-			fingerprint: await OpenSSH.makeFingerprint(blob)
-		};
+		return await this.#ret(blob);
 	}
 
 	/**
@@ -65,10 +60,60 @@ export class PubKey {
 			RFC4253.writeStringBytes(ecdsa.Q),    // string Q (0x04 || X || Y)
 		);
 
+		return await this.#ret(blob);
+	}
+
+	/**
+	 * Generates and returns an EdDSA public key blob.
+	 *
+	 * The method constructs an EdDSA key blob from the parsed key typeand public key data.
+	 * It processes these components according to the RFC4253 format and returns the resulting blob.
+	 *
+	 * @async
+	 * @return {Promise<Uint8Array>} A promise that resolves to a Uint8Array
+	 * representing the EdDSA key blob.
+	 */
+	async eddsa() {
+		const eddsa = this.#parser.eddsaSpki(); // { keyType: "ssh-ed25519" or "ssh-ed448", pub: Uint8Array }
+		const blob = Bytes.concat(
+			RFC4253.writeString(eddsa.keyType),
+			RFC4253.writeStringBytes(eddsa.pub)
+		);
+
+		return await this.#ret(blob);
+	}
+
+	/**
+	 * Generates a fingerprint string by computing the hash of the provided data and converting it to a Base64 encoded format.
+	 *
+	 * @async
+	 * @static
+	 * @param {ArrayBuffer} blob - The data to be hashed.
+	 * @param {string} [algo='SHA-256'] - The hashing algorithm to use, defaults to 'SHA-256'.
+	 * @return {Promise<string>} A promise that resolves to the fingerprint string with trailing equals signs removed.
+	 */
+	async #makeFingerprint(blob, algo = 'SHA-256') {
+		const digest = await crypto.subtle.digest(algo, blob);
+
+		return Bytes.toBase64(digest)
+			// OpenSSH風に末尾の=を削る
+			.replace(/=+$/, '');
+	}
+
+	/**
+	 * Processes the provided binary data (blob) and generates metadata including a base64-encoded public key
+	 * and a fingerprint derived from the binary data.
+	 *
+	 * @async
+	 * @param {Uint8Array} blob The binary data input to process.
+	 * @return {Promise<Object>} A promise that resolves to an object containing the raw input as `raw`,
+	 * the base64-encoded public key as `pubkey`, and the calculated fingerprint as `fingerprint`.
+	 */
+	async #ret(blob) {
 		return {
 			raw: blob,
 			pubkey: Bytes.toBase64(blob),
-			fingerprint: await OpenSSH.makeFingerprint(blob)
+			fingerprint: await this.#makeFingerprint(blob)
 		};
 	}
 }

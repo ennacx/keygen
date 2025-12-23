@@ -1,4 +1,4 @@
-import { OID } from './const.js';
+import { OID, EdDSA_PRESET } from './const.js';
 
 /**
  * Represents a parser for decoding RSA and ECDSA SubjectPublicKeyInfo structures.
@@ -74,11 +74,7 @@ export class Parser {
 			const n = this.#bytes.slice(nStart, nStart + nLen);
 			const e = this.#bytes.slice(eStart, eStart + eLen);
 
-			return {
-				name: 'ssh-rsa',
-				n: n,
-				e: e
-			};
+			return { name: 'ssh-rsa', n, e };
 		} finally {
 			this.#reset();
 		}
@@ -126,7 +122,7 @@ export class Parser {
 			}
 
 			// 残り全部が Q（EC Point）
-			const q = this.#bytes.slice(this.#offset, this.#offset + (bitStrLen - 1));
+			const Q = this.#bytes.slice(this.#offset, this.#offset + (bitStrLen - 1));
 
 			// OID → OpenSSHのcurve名にマップ
 			let curveName;
@@ -144,10 +140,59 @@ export class Parser {
 					throw new Error(`Unsupported EC curve OID: ${curveOid}`);
 			}
 
-			return {
-				curveName: curveName,
-				Q: q
-			};
+			return { curveName, Q };
+		} finally {
+			this.#reset();
+		}
+	}
+
+	eddsaSpki() {
+		try {
+			// SubjectPublicKeyInfo
+			this.#expect(0x30);       // SEQUENCE
+			this.#readLen();          // 全体長（使わない）
+
+			// AlgorithmIdentifier
+			this.#expect(0x30);       // SEQUENCE
+			const algLen = this.#readLen();
+			const algEnd = this.#offset + algLen;
+
+			// algorithm OID
+			let crv, keyType;
+			const algOid = this.#readOidAsString();
+			switch(algOid){
+				case OID.Ed25519:
+					crv = "Ed25519";
+					keyType = "ssh-ed25519";
+					break;
+				case OID.Ed448:
+					crv = "Ed448";
+					keyType = "ssh-ed448";
+					break;
+				default:
+					throw new Error(`Not an EdDSA SPKI (unexpected algorithm OID: ${algOid})`);
+			}
+
+			// EdDSAは parameters ABSENT のはずなので、残りがあってもスキップ
+			this.#offset = algEnd;
+
+			// subjectPublicKey (BIT STRING)
+			this.#expect(0x03);
+			const bitLen = this.#readLen();
+			const unusedBits = this.#bytes[this.#offset++];
+			if (unusedBits !== 0) {
+				throw new Error("Unexpected unused bits in EdDSA public key");
+			}
+
+			const pub = this.#bytes.slice(this.#offset, this.#offset + (bitLen - 1));
+
+			if(!EdDSA_PRESET[crv]){
+				throw new Error(`Unsupported EdDSA curve: ${crv}`);
+			} else if(pub.length !== EdDSA_PRESET[crv].seedLen){
+				throw new Error(`${crv} pub length must be ${EdDSA_PRESET[crv].seedLen}, got ${pub.length}`);
+			}
+
+			return { crv, keyType, pub };
 		} finally {
 			this.#reset();
 		}
