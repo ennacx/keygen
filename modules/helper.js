@@ -75,14 +75,13 @@ export class Helper {
 	}
 
 	/**
-	 * Converts a given buffer to a PEM formatted string.
+	 * Converts a buffer into a PEM (Privacy Enhanced Mail) formatted string with appropriate label and wrapping.
 	 *
-	 * @param {Uint8Array|ArrayBuffer} buffer - The binary data to be encoded in PEM format.
-	 * @param {string} label - The label to include in the PEM header and footer (e.g., "PUBLIC KEY", "PRIVATE KEY").
-	 * @param {number} [wrapWidth=64] - The width of line wrapping for the base64 content; defaults to 64.
-	 * @param {string} [addLabel=""] - An optional additional prefix to the label,
-	 *                                   appended before the main label in the header and footer (e.g., "ENCRYPTED", "OPENSSH").
-	 * @returns {string} A PEM formatted string with the provided label and encoded data.
+	 * @param {Uint8Array|ArrayBuffer} buffer - The data buffer to be converted to PEM format.
+	 * @param {string} label - The primary label to be used in the PEM header and footer.
+	 * @param {number} [wrapWidth=64] - The line width to wrap the base64-encoded content. Defaults to 64 if not provided.
+	 * @param {string} [addLabel=""] - An additional prefix to append to the label string. Defaults to an empty string.
+	 * @return {string} The PEM formatted string representation of the input buffer.
 	 */
 	static toPEM(buffer, label, wrapWidth = 64, addLabel = "") {
 		const base64 = this.stringWrap(Bytes.toBase64(buffer), wrapWidth);
@@ -95,6 +94,6 @@ export class Helper {
 			`-----BEGIN ${label}-----`,
 			base64,
 			`-----END ${label}-----`
-		]);
+		]) + '\n';
 	}
 }

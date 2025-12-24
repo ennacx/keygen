@@ -45,6 +45,11 @@ export class OpenSSH {
 			privBlob    = keyMaterial.ecdsaPrivatePart();
 			opt.Q       = keyMaterial.ecdsaQPoint();
 		}
+		// EdDSA
+		else if(keyType.startsWith('ssh-ed')){
+			pubBlob     = keyMaterial.eddsaPublicKey(); // FIXME: publicBlob(="ssh-ed25519"+len+pub)
+			privBlob    = keyMaterial.eddsaPrivateKey(); // FIXME: EdDSAでは `seed || pub` を欲しがる
+		}
 		// 不正
 		else{
 			throw new Error(`Unsupported key type for OpenSSH-key-v1: ${keyType}`);
@@ -63,6 +68,11 @@ export class OpenSSH {
 
 		let buildMaterial;
 
+		// EdDSA
+		if(keyType.startsWith('ssh-ed')){
+			pubBlob = keyMaterial.eddsaPublicBlob();
+		}
+
 		// パスフレーズ無しなら暗号化せずにそのまま入れる
 		if(!passphrase){
 			buildMaterial = {
@@ -73,7 +83,7 @@ export class OpenSSH {
 				encryptedBlob: plainBlob
 			};
 		}
-			// ChaCha20-Poly1305
+		// ChaCha20-Poly1305
 		// @see https://www.stablelib.com/classes/_stablelib_chacha20poly1305.ChaCha20Poly1305.html
 		else if(cipher === 'cc20p1305'){
 			// 3. bcrypt-pbkdfでAEADキー導出
@@ -178,26 +188,38 @@ export class OpenSSH {
 		let core;
 		if(keyType === 'ssh-rsa'){
 			core = Bytes.concat(
-				RFC4253.writeUint32(check),     // uint32     checkint1
-				RFC4253.writeUint32(check),     // uint32     checkint2
-				RFC4253.writeString(keyType),   // string     key type ("ssh-rsa" など)
-				RFC4253.writeStringBytes(publicBlob),
-				privatePart,                    // Uint8Array private key fields (鍵種別ごとの生フィールド)
-				RFC4253.writeString(comment)    // string     comment
+				RFC4253.writeUint32(check),           // uint32     checkint1
+				RFC4253.writeUint32(check),           // uint32     checkint2
+				RFC4253.writeString(keyType),         // string     key type ("ssh-rsa" など)
+				RFC4253.writeStringBytes(publicBlob), // Uint8Array pubkey
+				privatePart,                          // Uint8Array private key fields (鍵種別ごとの生フィールド)
+				RFC4253.writeString(comment)          // string     comment
 			);
 		} else if(keyType.startsWith('ecdsa-sha2-') && opt.Q instanceof Uint8Array){
+			const curve = keyType.replace('ecdsa-sha2-', '');
 			core = Bytes.concat(
 				RFC4253.writeUint32(check),      // uint32     checkint1
 				RFC4253.writeUint32(check),      // uint32     checkint2
 				RFC4253.writeString(keyType),    // string     key type ("ecdsa-sha2-nisp256" など)
-				RFC4253.writeString(keyType.replace('ecdsa-sha2-', '')),   // string     curve ("nisp256" など)
-				RFC4253.writeStringBytes(opt.Q), // Q
+				RFC4253.writeString(curve),      // string     curve ("nisp256" など)
+				RFC4253.writeStringBytes(opt.Q), // Uint8Array Q point
 				privatePart,                     // Uint8Array private key fields (鍵種別ごとの生フィールド)
 				RFC4253.writeString(comment)     // string     comment
 			);
+		} else if(keyType.startsWith('ssh-ed')){
+			core = Bytes.concat(
+				RFC4253.writeUint32(check),           // uint32     checkint1
+				RFC4253.writeUint32(check),           // uint32     checkint2
+				RFC4253.writeString(keyType),         // string     key type ("ssh-ed25519" など)
+				RFC4253.writeStringBytes(publicBlob), // Uint8Array pubkey
+				RFC4253.writeStringBytes(privatePart), // Uint8Array privkey (seed || pub)
+				RFC4253.writeString(comment)          // string     comment
+			);
+		} else{
+			throw new Error(`Unsupported key type for OpenSSH private key block: ${keyType}`);
 		}
 
-		// パディング (OpenSSHはblockSize=8)
+		// パディング (OpenSSHは`blockSize=8`)
 		const blockSize = 8;
 		const rem = core.length % blockSize;
 		const padLen = (rem === 0) ? 0 : (blockSize - rem);

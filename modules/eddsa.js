@@ -16,6 +16,10 @@ export class EdDSA {
 
 	keyType;
 
+	publicKey;
+
+	privateKey;
+
 	publicBlob;
 
 	privateFields;
@@ -36,22 +40,28 @@ export class EdDSA {
 		this.seed      = this.#getSeed(this.preset.seedLen);
 		this.keyType   = `ssh-${this.preset.name}`;
 
-		let pub;
 		switch(this.curveName){
 			case 'Ed25519':
-				pub = ed25519.getPublicKey(this.seed);
+				this.publicKey = ed25519.getPublicKey(this.seed);
 				break;
 			case 'Ed448':
-				pub = ed448.getPublicKey(this.seed);
+				this.publicKey = ed448.getPublicKey(this.seed);
 				break;
+			default:
+				throw new Error(`Invalid curve: ${this.curveName}`);
 		}
 
-		this.publicBlob    = this.#makeEdPublicBlob(this.keyType, pub);
-		this.privateFields = this.#makeEdPrivateFields(pub, this.seed);
+		this.publicBlob = Bytes.concat(
+			RFC4253.writeString(this.keyType),
+			RFC4253.writeStringBytes(this.publicKey)
+		);
 
-		this.spki  = this.#toSpkiDer({ crv: this.curveName, pub });
-		this.pkcs8 = this.#toPkcs8Der({ crv: this.curveName, seed: this.seed, pub, includePublic: false });
-		this.jwk   = this.#toJwk({ crv: this.curveName, pub, seed: this.seed });
+		// privateKey= seed || pub
+		this.privateKey = Bytes.concat(this.seed, this.publicKey);
+
+		this.spki  = this.#toSpkiDer();
+		this.pkcs8 = this.#toPkcs8Der(false);
+		this.jwk   = this.#toJwk();
 	}
 
 	#getSeed(length) {
@@ -60,22 +70,6 @@ export class EdDSA {
 		crypto.getRandomValues(seed);
 
 		return seed;
-	}
-
-	#makeEdPublicBlob(keyType, pub) {
-		return Bytes.concat(
-			RFC4253.writeString(keyType),
-			RFC4253.writeStringBytes(pub)
-		);
-	}
-
-	#makeEdPrivateFields(pub, seed) {
-		const priv = Bytes.concat(seed, pub); // seed || pub
-
-		return Bytes.concat(
-			RFC4253.writeStringBytes(pub),
-			RFC4253.writeStringBytes(priv)
-		);
 	}
 
 	#algoIdFor(crv) {
@@ -89,18 +83,18 @@ export class EdDSA {
 		return DerHelper.seq(DerHelper.oid(oid));
 	}
 
-	#toSpkiDer({ crv, pub }) {
-		const alg = this.#algoIdFor(crv);
-		const spk = DerHelper.bit(pub); // BIT STRING of raw public key
+	#toSpkiDer() {
+		const alg = this.#algoIdFor(this.curveName);
+		const spk = DerHelper.bit(this.publicKey); // BIT STRING of raw public key
 
 		return DerHelper.concatSequence(alg, spk);
 	}
 
-	#toPkcs8Der({ crv, seed, pub = null, includePublic = false }) {
-		const algo       = this.#algoIdFor(crv);
+	#toPkcs8Der(includePublic = false) {
+		const algo       = this.#algoIdFor(this.curveName);
 		const verNum     = (includePublic) ? 0x01 : 0x00; // v1 or v0
 		const version    = DerHelper.tlv(0x02, new Uint8Array([verNum]));
-		const insidePriv = DerHelper.oct(seed);       // RFC8410: privateKey OCTET STRING contains the seed (inside)
+		const insidePriv = DerHelper.oct(this.seed);       // RFC8410: privateKey OCTET STRING contains the seed (inside)
 		const priv       = DerHelper.oct(insidePriv); // OCTET STRING contains the seed (outside)
 
 		const items = [
@@ -110,11 +104,11 @@ export class EdDSA {
 		];
 
 		if(includePublic){
-			if(!pub){
+			if(!this.publicKey){
 				throw new Error('includePublic=true requires pub');
 			}
 
-			const pubBit = DerHelper.bit(pub); // BIT STRING (0x00 || pub)
+			const pubBit = DerHelper.bit(this.publicKey); // BIT STRING (0x00 || pub)
 
 			// Add to items
 			items.push(DerHelper.ctxExplicit(1, pubBit)); // [1] EXPLICIT BIT STRING
@@ -123,15 +117,15 @@ export class EdDSA {
 		return DerHelper.concatSequence(...items);
 	}
 
-	#toJwk({ crv, pub, seed = null }) {
+	#toJwk() {
 		const jwk = {
 			kty: 'OKP',
-			crv,
-			x: Bytes.toBase64Url(pub)
+			crv: this.curveName,
+			x: Bytes.toBase64Url(this.publicKey)
 		};
 
-		if(seed){
-			jwk.d = Bytes.toBase64Url(seed);
+		if(this.seed){
+			jwk.d = Bytes.toBase64Url(this.seed);
 		}
 
 		return jwk;

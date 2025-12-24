@@ -74,7 +74,7 @@ export class PubKey {
 	 * representing the EdDSA key blob.
 	 */
 	async eddsa() {
-		const eddsa = this.#parser.eddsaSpki(); // { keyType: "ssh-ed25519" or "ssh-ed448", pub: Uint8Array }
+		const eddsa = this.#parser.eddsaSpki(); // eddsaSpki() = { keyType: "ssh-ed25519" or "ssh-ed448", pub: Uint8Array }
 		const blob = Bytes.concat(
 			RFC4253.writeString(eddsa.keyType),
 			RFC4253.writeStringBytes(eddsa.pub)

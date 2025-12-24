@@ -46,6 +46,14 @@ export class KeyMaterial {
 	 */
 	jwk;
 
+	/**
+	 * Represents the EDDSA (Edwards-curve Digital Signature Algorithm) functionality.
+	 * This variable encapsulates methods and properties to create and verify digital signatures
+	 * using the Edwards-curve cryptographic algorithm.
+	 * Commonly used for secure key generation, signing data, and verifying signatures in cryptographic systems.
+	 *
+	 * @var {EdDSA}
+	 */
 	#eddsa;
 
 	/**
@@ -228,9 +236,33 @@ export class KeyMaterial {
 		);
 	}
 
-	eddsaPrivatePart() {
+	eddsaPublicKey() {
 		if(!this.#eddsa){
 			throw new Error(this.EdDSA_NO_INIT_ERR_MSG);
 		}
+
+		return this.#eddsa.publicKey;
+	}
+
+	eddsaPublicBlob() {
+		if(!this.#eddsa){
+			throw new Error(this.EdDSA_NO_INIT_ERR_MSG);
+		}
+
+		return this.#eddsa.publicBlob;
+	}
+
+	/**
+	 * Retrieves the EdDSA private key component by combining its seed and public blob.
+	 *
+	 * @return {Uint8Array} A byte array that concatenates the seed and public blob (`seed || pubkey`) of the EdDSA key.
+	 * @throws {Error} If the EdDSA instance has not been initialized.
+	 */
+	eddsaPrivateKey() {
+		if(!this.#eddsa){
+			throw new Error(this.EdDSA_NO_INIT_ERR_MSG);
+		}
+
+		return this.#eddsa.privateKey;
 	}
 }

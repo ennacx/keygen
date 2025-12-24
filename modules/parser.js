@@ -32,7 +32,7 @@ export class Parser {
 		try {
 			// SubjectPublicKeyInfo
 			this.#expect(0x30);           // SEQUENCE
-			this.#readLen();              // 全体長
+			this.#readLen();              // 全体長 (使わない)
 
 			// AlgorithmIdentifier
 			this.#expect(0x30);           // SEQUENCE
@@ -94,7 +94,7 @@ export class Parser {
 		try {
 			// SubjectPublicKeyInfo
 			this.#expect(0x30);              // SEQUENCE
-			this.#readLen();                 // 全体長は使わない
+			this.#readLen();                 // 全体長 (使わない)
 
 			// AlgorithmIdentifier
 			this.#expect(0x30);              // SEQUENCE
@@ -146,11 +146,21 @@ export class Parser {
 		}
 	}
 
+	/**
+	 * Parses an EdDSA SubjectPublicKeyInfo (SPKI) format, extracting curve type, key type, and public key data.
+	 *
+	 * @return {Object} An object containing:
+	 *  - crv: The curve type (e.g., "Ed25519", "Ed448").
+	 *  - keyType: The key type (e.g., "ssh-ed25519", "ssh-ed448").
+	 *  - pub: A Uint8Array representing the public key.
+	 * @throws {Error} If the SPKI format is invalid, the algorithm OID is unexpected,
+	 *                 or the curve type or public key length is unsupported.
+	 */
 	eddsaSpki() {
 		try {
 			// SubjectPublicKeyInfo
 			this.#expect(0x30);       // SEQUENCE
-			this.#readLen();          // 全体長（使わない）
+			this.#readLen();          // 全体長 (使わない)
 
 			// AlgorithmIdentifier
 			this.#expect(0x30);       // SEQUENCE
@@ -163,11 +173,11 @@ export class Parser {
 			switch(algOid){
 				case OID.Ed25519:
 					crv = "Ed25519";
-					keyType = "ssh-ed25519";
+					keyType = `ssh-${EdDSA_PRESET.Ed25519.name}`;
 					break;
 				case OID.Ed448:
 					crv = "Ed448";
-					keyType = "ssh-ed448";
+					keyType = `ssh-${EdDSA_PRESET.Ed448.name}`;
 					break;
 				default:
 					throw new Error(`Not an EdDSA SPKI (unexpected algorithm OID: ${algOid})`);
