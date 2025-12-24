@@ -50,7 +50,7 @@ export class EdDSA {
 		this.privateFields = this.#makeEdPrivateFields(pub, this.seed);
 
 		this.spki  = this.#toSpkiDer({ crv: this.curveName, pub });
-		this.pkcs8 = this.#toPkcs8Der({ crv: this.curveName, seed: this.seed, pub, includePublic: true });
+		this.pkcs8 = this.#toPkcs8Der({ crv: this.curveName, seed: this.seed, pub, includePublic: false });
 		this.jwk   = this.#toJwk({ crv: this.curveName, pub, seed: this.seed });
 	}
 
@@ -96,18 +96,27 @@ export class EdDSA {
 		return DerHelper.concatSequence(alg, spk);
 	}
 
-	#toPkcs8Der({ crv, seed, pub = null, includePublic = true }) {
-		const alg = this.#algoIdFor(crv);
-		const version = (includePublic) ? DerHelper.tlv(0x02, Uint8Array.of(0x01)) : DerHelper.int(0); // INTEGER 1 if publicKey present, else 0
-		const priv = DerHelper.oct(seed); // RFC8410: privateKey OCTET STRING contains the seed
-		const items = [version, alg, priv];
+	#toPkcs8Der({ crv, seed, pub = null, includePublic = false }) {
+		const algo       = this.#algoIdFor(crv);
+		const verNum     = (includePublic) ? 0x01 : 0x00; // v1 or v0
+		const version    = DerHelper.tlv(0x02, new Uint8Array([verNum]));
+		const insidePriv = DerHelper.oct(seed);       // RFC8410: privateKey OCTET STRING contains the seed (inside)
+		const priv       = DerHelper.oct(insidePriv); // OCTET STRING contains the seed (outside)
+
+		const items = [
+			version,
+			algo,
+			priv
+		];
 
 		if(includePublic){
 			if(!pub){
 				throw new Error('includePublic=true requires pub');
 			}
 
-			const pubBit = DerHelper.bit(pub);
+			const pubBit = DerHelper.bit(pub); // BIT STRING (0x00 || pub)
+
+			// Add to items
 			items.push(DerHelper.ctxExplicit(1, pubBit)); // [1] EXPLICIT BIT STRING
 		}
 
