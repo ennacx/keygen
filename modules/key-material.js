@@ -52,7 +52,7 @@ export class KeyMaterial {
 	 * using the Edwards-curve cryptographic algorithm.
 	 * Commonly used for secure key generation, signing data, and verifying signatures in cryptographic systems.
 	 *
-	 * @var {EdDSA}
+	 * @type {EdDSA}
 	 */
 	#eddsa;
 
@@ -200,8 +200,10 @@ export class KeyMaterial {
 			throw new Error(this.JWK_NO_INIT_ERR_MSG);
 		}
 
-		// ECDSAでの平文の秘密鍵情報は d だけ
-		return Bytes.fromBase64(this.jwk.d);
+		const d = Bytes.fromBase64(this.jwk.d);
+
+		// FIXME: ECDSAでの平文の秘密鍵情報は d だけ
+		return RFC4253.writeMpint(d);
 	}
 
 	/**
@@ -236,6 +238,12 @@ export class KeyMaterial {
 		);
 	}
 
+	/**
+	 * Retrieves the EdDSA public key.
+	 *
+	 * @return {string} The public key associated with the EdDSA instance.
+	 * @throws {Error} If the EdDSA instance has not been initialized.
+	 */
 	eddsaPublicKey() {
 		if(!this.#eddsa){
 			throw new Error(this.EdDSA_NO_INIT_ERR_MSG);
@@ -244,6 +252,12 @@ export class KeyMaterial {
 		return this.#eddsa.publicKey;
 	}
 
+	/**
+	 * Retrieves the EdDSA public blob. (KeyType + PublicKey)
+	 *
+	 * @throws {Error} If the EdDSA instance is not initialized.
+	 * @return {Uint8Array} The public blob for the EdDSA instance.
+	 */
 	eddsaPublicBlob() {
 		if(!this.#eddsa){
 			throw new Error(this.EdDSA_NO_INIT_ERR_MSG);

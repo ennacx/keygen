@@ -171,16 +171,15 @@ export class OpenSSH {
 	}
 
 	/**
-	 * Generates an OpenSSH private key block in binary format.
-	 * The method constructs the binary structure for an OpenSSH private key by combining the private key fields,
-	 * public key blob, comment, and other required metadata according to OpenSSH specifications.
-	 * Includes padding to ensure the block size is a multiple of 8 bytes.
+	 * Creates an OpenSSH private key block from the provided parameters.
 	 *
-	 * @param {string} keyType - The type of the SSH key (e.g., "ssh-rsa").
-	 * @param {Uint8Array} publicBlob - The public key blob in binary format.
-	 * @param {Uint8Array} privatePart - The private key fields specific to the key type in binary format.
-	 * @param {string} comment - A comment describing the key.
-	 * @return {Uint8Array} A Uint8Array representing the complete OpenSSH private key block in binary form.
+	 * @param {string} keyType - The type of the key, such as 'ssh-rsa', 'ecdsa-sha2-nisp256', or 'ssh-ed25519'.
+	 * @param {Uint8Array} publicBlob - The public key blob associated with the key (used for certain key types).
+	 * @param {Uint8Array} privatePart - The private key fields specific to the key type.
+	 * @param {string} comment - The comment associated with the private key.
+	 * @param {Object} [opt={}] - Optional parameters. For ECDSA keys, this should include `Q`, the Uint8Array representing the public point.
+	 * @returns {Uint8Array} The OpenSSH private key block as a Uint8Array.
+	 * @throws {Error} If an unsupported key type is provided.
 	 */
 	static #makeOpenSshPrivateBlock(keyType, publicBlob, privatePart, comment, opt = {}) {
 		const check = crypto.getRandomValues(new Uint32Array(1))[0];
@@ -191,7 +190,6 @@ export class OpenSSH {
 				RFC4253.writeUint32(check),           // uint32     checkint1
 				RFC4253.writeUint32(check),           // uint32     checkint2
 				RFC4253.writeString(keyType),         // string     key type ("ssh-rsa" など)
-				RFC4253.writeStringBytes(publicBlob), // Uint8Array pubkey
 				privatePart,                          // Uint8Array private key fields (鍵種別ごとの生フィールド)
 				RFC4253.writeString(comment)          // string     comment
 			);
