@@ -216,15 +216,6 @@ if(cipherName === 'none'){
 		logger(`inner keyType: ${keyType}`);
 
 		if(keyType === 'ssh-rsa'){
-			// inner public blob
-			const innerPublicBlob = readPrivString();
-			logger([
-				`inner public blob: ${toBase64(innerPublicBlob)}`,
-				`inner public blob length: ${innerPublicBlob.length}`,
-				// ついでに外側 publicKey1 と一致チェック
-				`(inner public blob == publicKey1): ${(innerPublicBlob.equals(publicKey1)) ? 'true' : 'false'}`,
-			]);
-
 			// mpint
 			const n    = readPrivString();  // mpint n
 			const e    = readPrivString();  // mpint e

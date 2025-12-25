@@ -25,7 +25,7 @@ let keygenReduceNum = -1;
  * @returns {Promise<Uint8Array>} A promise that resolves to the ciphertext as a sequence of bytes.
  */
 const aesCbcEncryptRaw = async (keyBytes, ivBytes, plaintext) => {
-	const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['encrypt']);
+	const key        = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['encrypt']);
 	const ciphertext = await crypto.subtle.encrypt({ name: 'AES-CBC', iv: ivBytes }, key, plaintext);
 
 	return new Uint8Array(ciphertext);

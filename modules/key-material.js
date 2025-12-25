@@ -92,7 +92,7 @@ export class KeyMaterial {
 				algo = {
 					name: 'RSA-PSS',
 					modulusLength: opt.len,
-					publicExponent: new Uint8Array([1, 0, 1]),
+					publicExponent: Uint8Array.from([1, 0, 1]),
 					hash: 'SHA-256'
 				};
 				break;
@@ -241,7 +241,7 @@ export class KeyMaterial {
 	/**
 	 * Retrieves the EdDSA public key.
 	 *
-	 * @return {string} The public key associated with the EdDSA instance.
+	 * @return {Uint8Array} The public key associated with the EdDSA instance.
 	 * @throws {Error} If the EdDSA instance has not been initialized.
 	 */
 	eddsaPublicKey() {
@@ -255,8 +255,8 @@ export class KeyMaterial {
 	/**
 	 * Retrieves the EdDSA public blob. (KeyType + PublicKey)
 	 *
-	 * @throws {Error} If the EdDSA instance is not initialized.
 	 * @return {Uint8Array} The public blob for the EdDSA instance.
+	 * @throws {Error} If the EdDSA instance is not initialized.
 	 */
 	eddsaPublicBlob() {
 		if(!this.#eddsa){

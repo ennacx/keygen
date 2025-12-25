@@ -2,6 +2,12 @@ import { Bytes } from "./bytes.js";
 import { Parser } from "./parser.js";
 import { RFC4253 } from "./rfc4253.js";
 
+/**
+ * The `PubKey` class provides methods to parse SPKI (Subject Public Key Info) data
+ * and generate public key representations in formats compatible with OpenSSH.
+ * It supports different types of public key algorithms such as RSA, ECDSA, and EdDSA,
+ * and provides utilities for generating and retrieving key fingerprints.
+ */
 export class PubKey {
 	/**
 	 * Represents a parser instance that is responsible for analyzing and interpreting input data or structures,

@@ -71,6 +71,16 @@ export class Bytes {
 	}
 
 	/**
+	 * Generates a cryptographically secure random salt.
+	 *
+	 * @param {number} [saltLen=16] - The desired length of the generated salt.
+	 * @return {Uint8Array} A Uint8Array containing the randomly generated salt.
+	 */
+	static generateSalt(saltLen = 16) {
+		return crypto.getRandomValues(new Uint8Array(saltLen));
+	}
+
+	/**
 	 * Generates a hashed seed from the input buffer using the specified algorithm.
 	 *
 	 * @param {ArrayBuffer} buffer - The input buffer to hash.
