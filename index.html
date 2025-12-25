@@ -105,16 +105,16 @@
                     </div>
                     <div>
                         <div class="form-check">
-                            <input type="radio" name="enc-type" value="pkcs8" id="enc-type-pkcs8" class="form-check-input" checked>
-                            <label for="enc-type-pkcs8" class="form-check-label">OpenSSL / PKCS#8<span class="mono">PBES2:&nbsp;PBKDF2&nbsp;+&nbsp;AES-CBC</span></label>
-                        </div>
-                        <div class="form-check">
-                            <input type="radio" name="enc-type" value="sshv1-aes256ctr" id="enc-type-sshv1-aes256ctr" class="form-check-input">
+                            <input type="radio" name="enc-type" value="sshv1-aes256ctr" id="enc-type-sshv1-aes256ctr" class="form-check-input" checked>
                             <label for="enc-type-sshv1-aes256ctr" class="form-check-label">OpenSSH<span class="mono">bcrypt-pbkdf&nbsp;+&nbsp;AES-256-CTR</span></label>
                         </div>
                         <div class="form-check">
                             <input type="radio" name="enc-type" value="sshv1-cc20p1305" id="enc-type-sshv1-cc20p1305" class="form-check-input">
-                            <label for="enc-type-sshv1-cc20p1305" class="form-check-label">OpenSSH<span class="mono">bcrypt-pbkdf&nbsp;+&nbsp;chacha20-poly1305</span></label>
+                            <label for="enc-type-sshv1-cc20p1305" class="form-check-label">OpenSSH<span class="mono">bcrypt-pbkdf&nbsp;+&nbsp;IETF&nbsp;chacha20-poly1305&nbsp;(RFC8439)</span></label>
+                        </div>
+                        <div class="form-check">
+                            <input type="radio" name="enc-type" value="pkcs8" id="enc-type-pkcs8" class="form-check-input">
+                            <label for="enc-type-pkcs8" class="form-check-label">OpenSSL / PKCS#8<span class="mono">PBES2:&nbsp;PBKDF2&nbsp;+&nbsp;AES-CBC</span></label>
                         </div>
                     </div>
                 </div>
