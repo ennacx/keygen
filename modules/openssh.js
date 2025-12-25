@@ -117,7 +117,7 @@ export class OpenSSH {
 			);
 
 			buildMaterial = {
-				cipherName: 'chacha20-poly1305@openssh.com', // FIXME: "@openssh.com"を落とすと即アウト。大文字小文字も区別される
+				cipherName: 'chacha20-poly1305@ietf.rfc8439', // FIXME: 独自の名前
 				kdfName:    'bcrypt',
 				kdfOptions,
 				publicBlob:  pubBlob,
