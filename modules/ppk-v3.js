@@ -92,7 +92,7 @@ export class PPKv3 {
 		const memory      = 8192; // KiB
 		const passes      = 13;
 		const parallelism = 1;
-		const salt = crypto.getRandomValues(new Uint8Array(16));
+		const salt        = Bytes.generateSalt(16);
 
 		// argon2でハッシュ化
 		const out = await argon2.hash({
@@ -184,7 +184,8 @@ export class PPKv3 {
 			return plain;
 		}
 
-		const pad = crypto.getRandomValues(new Uint8Array(padLen));
+		const pad = Bytes.generateSalt(padLen);
+
 		return Bytes.concat(plain, pad);
 	};
 

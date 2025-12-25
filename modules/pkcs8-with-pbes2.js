@@ -1,4 +1,5 @@
 import { OID } from './const.js';
+import { Bytes } from "./bytes.js";
 import { DerHelper } from "./der-helper.js";
 
 /**
@@ -79,8 +80,8 @@ export class PKCS8withPBES2 {
 		const buffer = (privDer instanceof Uint8Array) ? privDer : new Uint8Array(privDer);
 
 		// RandomSaltとIVの生成
-		const salt = crypto.getRandomValues(new Uint8Array(this.#saltSize));
-		const iv   = crypto.getRandomValues(new Uint8Array(16));
+		const salt = Bytes.generateSalt(this.#saltSize);
+		const iv   = Bytes.generateSalt(16);
 
 		// ---- PBKDF2でAES-256キーを導出 (PBKDF2-HMAC-SHA256)
 		const utf8Passphrase = new TextEncoder().encode(this.#passphrase);

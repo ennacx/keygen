@@ -71,6 +71,24 @@ export class Bytes {
 	}
 
 	/**
+	 * Generates a random unsigned 8-bit integer (Uint8) using a cryptographically secure random number generator.
+	 *
+	 * @return {number} A cryptographically secure random unsigned 8-bit integer.
+	 */
+	static getRandomUint8() {
+		return crypto.getRandomValues(new Uint8Array(1))[0];
+	}
+
+	/**
+	 * Generates a random unsigned 32-bit integer (Uint32) using a cryptographically secure random number generator.
+	 *
+	 * @return {number} A cryptographically secure random unsigned 32-bit integer.
+	 */
+	static getRandomUint32() {
+		return crypto.getRandomValues(new Uint32Array(1))[0];
+	}
+
+	/**
 	 * Generates a cryptographically secure random salt.
 	 *
 	 * @param {number} [saltLen=16] - The desired length of the generated salt.

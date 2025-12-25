@@ -97,9 +97,9 @@ export class OpenSSH {
 			const kdf = this.#bcryptKdf(passphrase, salt, rounds, 32);
 
 			// 4. ChaCha20-Poly1305 で暗号化
-			const nonce = crypto.getRandomValues(new Uint8Array(12)); // RFC7539ではノンス(iv)長は12byteを指定
-			const aead  = new ChaCha20Poly1305(kdf);                  // AEAD (Authenticated Encryption with Associated Data)
-			const aad   = new Uint8Array(0);                          // FIXME: 現状AADに突っ込むものがないので空のまま
+			const nonce = Bytes.generateSalt(12);    // RFC7539ではノンス(iv)長は12byteを指定
+			const aead  = new ChaCha20Poly1305(kdf); // AEAD (Authenticated Encryption with Associated Data)
+			const aad   = new Uint8Array(0);         // FIXME: 現状AADに突っ込むものがないので空のまま
 
 			const sealed = new Uint8Array(plainBlob.length + 16); // ciphertext || tag (末尾16バイトがタグ) FIXME: 必ずpadding後に暗号化
 			aead.seal(nonce, plainBlob, aad, sealed);
@@ -200,7 +200,7 @@ export class OpenSSH {
 	 * @throws {Error} If the specified `keyType` is unsupported.
 	 */
 	static #makeOpenSshPrivateBlock(keyType, publicBlob, privatePart, comment, opt = {}) {
-		const check = crypto.getRandomValues(new Uint32Array(1))[0];
+		const check = Bytes.getRandomUint32();
 
 		let core;
 		if(keyType === 'ssh-rsa'){
@@ -312,7 +312,7 @@ export class OpenSSH {
 		);
 
 		console.log(Helper.implode([
-			'bcrypt-pbkdf AEAD-Key Hex Dump:',
+			'bcrypt-pbkdf Key Hex-Dump:',
 			Helper.hexPad(kdfBytes)
 		]));
 
@@ -326,14 +326,15 @@ export class OpenSSH {
 	 * @return {number} The block size of the cipher in bytes.
 	 */
 	static #getCipherBlockSize(cipherName) {
+		// パスワード無しの場合
 		if(cipherName === 'none'){
 			return 8;
 		}
-		// aes256-ctr 等
+		// aes256-ctr等
 		else if(cipherName.endsWith('ctr')){
 			return 16;
 		}
-		// aes256-cbc 等
+		// aes256-cbc等
 		else if(cipherName.endsWith('cbc')){
 			return 16;
 		}
@@ -357,6 +358,7 @@ export class OpenSSH {
 	static #addPadding(buffer, blockSize) {
 		const bufferLen = buffer.length;
 		const remain    = bufferLen % blockSize;
+
 		let padLen = blockSize - remain;
 
 		// 割り切れる場合でもパディングは必要

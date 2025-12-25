@@ -109,7 +109,7 @@ export class EdDSA {
 
 		this.curveName = curveName;
 		this.preset    = EdDSA_PRESET[this.curveName];
-		this.seed      = this.#generateSeed(this.preset.seedLen);
+		this.seed      = Bytes.generateSalt(this.preset.seedLen);
 		this.keyType   = `ssh-${this.preset.name}`;
 
 		switch(this.curveName){
@@ -134,20 +134,6 @@ export class EdDSA {
 		this.spki  = this.#toSpkiDer();
 		this.pkcs8 = this.#toPkcs8Der(false);
 		this.jwk   = this.#toJwk();
-	}
-
-	/**
-	 * Generates a cryptographically secure random seed as a Uint8Array.
-	 *
-	 * @param {number} length - The desired length of the generated seed.
-	 * @return {Uint8Array} A Uint8Array containing randomly generated values.
-	 */
-	#generateSeed(length) {
-		const seed = new Uint8Array(length);
-
-		crypto.getRandomValues(seed);
-
-		return seed;
 	}
 
 	/**
