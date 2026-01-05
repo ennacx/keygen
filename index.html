@@ -31,7 +31,10 @@
         <h2>セキュアな鍵ペア生成</h2>
 
         <div id="subheader">
-            <p class="d-none">暗号学的乱数で安全な鍵を簡単生成。オフラインでも使えます。</p>
+            <p class="d-none">
+                暗号学的乱数で安全な鍵を簡単生成。オフラインでも使えます。<br>
+                Generate secure key pairs using cryptographic random numbers. Works offline too.
+            </p>
         </div>
 
         <fieldset id="select">
@@ -116,7 +119,7 @@
                             </div>
                             <div class="form-check">
                                 <input type="radio" name="enc-type" value="pkcs8" id="enc-type-pkcs8" class="form-check-input">
-                                <label for="enc-type-pkcs8" class="form-check-label">PKCS#8&nbsp;(OpenSSL Compatible)<span class="mono">PBES2:&nbsp;PBKDF2&nbsp;+&nbsp;AES-CBC</span></label>
+                                <label for="enc-type-pkcs8" class="form-check-label">PKCS#8&nbsp;(OpenSSL Compatible)<span class="mono">PBES2:&nbsp;PBKDF2&nbsp;+&nbsp;AES-256-CBC</span></label>
                             </div>
                         </div>
                     </div>
@@ -220,7 +223,7 @@
         </div>
         <div class="ms-auto">
             <ul class="list-group list-group-horizontal copy-links">
-                <li>&copy;&nbsp;2025&nbsp;Ennacx</li>
+                <li>&copy;&nbsp;2026&nbsp;Ennacx</li>
                 <li><a href="https://ennacx.github.io/benri/" target="_blank"><i class="bi bi-house-door"></i>便利ツール</a></li>
                 <li><a href="https://github.com/ennacx/keygen" target="_blank"><i class="bi bi-github"></i>GitHub</a></li>
             </ul>
