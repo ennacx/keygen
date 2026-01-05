@@ -96,12 +96,12 @@
                     <label for="passphrase">Passphrase:</label>
                     <div class="input-group">
                         <input type="password" name="passphrase" id="passphrase" class="form-control passphrase-input" autocomplete="off">
-                        <button type="button" class="btn btn-outline-secondary show-toggle-passphrase" title="Passphrase-Show-Toggle-Button"><i class="bi bi-eye"></i></button>
+                        <button type="button" class="btn btn-outline-secondary eye-toggle" title="Passphrase-Show-Toggle-Button"><i class="bi bi-eye"></i></button>
                     </div>
                     <label for="passphrase_c">Passphrase (Confirm):</label>
                     <div class="input-group">
                         <input type="password" name="passphrase_c" id="passphrase_c" class="form-control passphrase-input" autocomplete="off">
-                        <button type="button" class="btn btn-outline-secondary show-toggle-passphrase" title="Confirm-Passphrase-Show-Toggle-Button"><i class="bi bi-eye"></i></button>
+                        <button type="button" class="btn btn-outline-secondary eye-toggle" title="Confirm-Passphrase-Show-Toggle-Button"><i class="bi bi-eye"></i></button>
                     </div>
                     <div class="card mt-2">
                         <div class="card-header">Encryption Algorithm</div>
@@ -170,7 +170,7 @@
 
         <fieldset id="result" class="mt-5">
             <div class="card">
-                <div data-bs-toggle="collapse" data-bs-target="#pubkey-field" aria-expanded="false" aria-controls="pubkey-field" role="button" class="card-header d-flex">
+                <div data-bs-toggle="collapse" data-bs-target="#pubkey-field" aria-expanded="false" aria-controls="pubkey-field" role="button" class="card-header collapse-toggle d-flex">
                     <h3>Public Key🔑</h3>
                     <span class="ms-auto" style="margin-top: 4px;"><i class="bi bi-caret-down-fill"></i></span>
                 </div>
@@ -193,7 +193,7 @@
             </div>
 
             <div class="card mt-3">
-                <div data-bs-toggle="collapse" data-bs-target="#privkey-field" aria-expanded="false" aria-controls="privkey-field" role="button" class="card-header d-flex">
+                <div data-bs-toggle="collapse" data-bs-target="#privkey-field" aria-expanded="false" aria-controls="privkey-field" role="button" class="card-header collapse-toggle d-flex">
                     <h3>Private Key🔒</h3>
                     <span class="ms-auto" style="margin-top: 4px;"><i class="bi bi-caret-down-fill"></i></span>
                 </div>

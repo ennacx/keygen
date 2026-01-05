@@ -160,4 +160,15 @@ pre.result-mono {
   background: #4caf50;
 }
 
+.btn.btn-outline-secondary.eye-toggle {
+  color: #8c959d;
+  border-color: #dae0e5;
+  background-color: #fff;
+}
+.btn.btn-outline-secondary.eye-toggle:hover {
+  color: #6c858d;
+  border-color: #dae0e5;
+  background-color: #e2e6ea;
+}
+
 /*# sourceMappingURL=keygen.css.map */

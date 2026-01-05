@@ -196,7 +196,8 @@ label {
 
 pre {
 	&.result-mono {
-		background: #eee; padding: 1rem;
+		background: #eee;
+		padding: 1rem;
 		font-family: $mono_font system-ui monospace;
 		white-space: pre-wrap;
 		word-break: break-all;
@@ -216,8 +217,18 @@ pre {
 	background: #4caf50;
 }
 
-.btn{
-&.show-toggle-passphrase {
-	//background: transparent;
-}
+.btn {
+	&.btn-outline-secondary {
+		&.eye-toggle {
+			color: #8c959d;
+			border-color: #dae0e5;
+			background-color: #fff;
+
+			&:hover {
+				color: #6c858d;
+				border-color: #dae0e5;
+				background-color: #e2e6ea;
+			}
+		}
+	}
 }

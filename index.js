@@ -146,7 +146,7 @@ $(() => {
 	/*
 	 * パスフレーズ表示切替
 	 */
-	$('button.show-toggle-passphrase').click(function(){
+	$('button.eye-toggle').click(function(){
 		const $input = $(this).parent().find('input');
 		const $i = $(this).find('i');
 		const type = $input.prop('type');
@@ -328,5 +328,23 @@ $(() => {
 		// } catch(e){
 		// 	$errorAlert.text(e.message).show();
 		// }
+	});
+
+	/*
+	 * Bootstrap collapseのキャレット切替
+	 */
+	$('.collapse-toggle').click(function(){
+		const $this = $(this);
+		const ariaExpanded = $this.attr('aria-expanded');
+		if(ariaExpanded !== undefined){
+			const $icon = $this.find('i.bi')
+			if(ariaExpanded === 'true'){
+				$icon.removeClass('bi-caret-down-fill');
+				$icon.addClass('bi-caret-up-fill');
+			} else{
+				$icon.removeClass('bi-caret-up-fill');
+				$icon.addClass('bi-caret-down-fill');
+			}
+		}
 	});
 })
