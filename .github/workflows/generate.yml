@@ -64,7 +64,7 @@ jobs:
 #        cp ./resources/icon-512.png ./dist/resources/
 #        cp ./resources/ogp-banner.png ./dist/resources/
 
-    - name: Run ESBUILD
+    - name: Run ESBUILD (Combine modularized JS files into app.js.)
       run: |
          npm install
          npm run build

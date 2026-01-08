@@ -66,12 +66,6 @@ footer {
 footer p i {
   margin-right: 6px;
 }
-footer .disclaimer {
-  color: #aaaacc;
-}
-footer .disclaimer p {
-  display: none;
-}
 footer ul.copy-links {
   list-style: none;
 }
@@ -169,6 +163,13 @@ pre.result-mono {
   color: #6c858d;
   border-color: #dae0e5;
   background-color: #e2e6ea;
+}
+
+.disclaimer {
+  color: #aaaacc;
+}
+.disclaimer p {
+  display: none;
 }
 
 /*# sourceMappingURL=keygen.css.map */

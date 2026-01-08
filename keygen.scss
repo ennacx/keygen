@@ -93,15 +93,6 @@ footer {
 		}
 	}
 
-	.disclaimer {
-		color: #aaaacc;
-
-		// 表示はしない
-		p {
-			display: none;
-		}
-	}
-
 	ul.copy-links {
 		list-style: none;
 
@@ -230,5 +221,14 @@ pre {
 				background-color: #e2e6ea;
 			}
 		}
+	}
+}
+
+.disclaimer {
+	color: #aaaacc;
+
+	// 表示はしない
+	p {
+		display: none;
 	}
 }
