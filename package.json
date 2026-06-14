@@ -10,7 +10,7 @@
     "crypto-js": "^4.2.0"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.28.1"
   },
   "scripts": {
     "build": "esbuild modules/bridge.js --bundle --minify --sourcemap=inline --format=esm --target=es2020 --loader:.wasm=file --asset-names=assets/[name]-[hash] --outfile=dist/app.js",
